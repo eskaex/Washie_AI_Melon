@@ -7,6 +7,7 @@ public class registercontroller {
     @FXML
     private Label welcomeText;
 
+    //test
     @FXML
     protected void onHelloButtonClick() {
         welcomeText.setText("Welcome to JavaFX Application!");
