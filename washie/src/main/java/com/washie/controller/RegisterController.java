@@ -3,7 +3,7 @@ package com.washie.washie;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 
-public class registercontroller {
+public class RegisterController {
     @FXML
     private Label welcomeText;
 
