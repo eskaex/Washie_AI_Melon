@@ -43,7 +43,6 @@ public class LoginController implements Initializable {
         tfPasswordVisible.setManaged(false);
         lblError.setVisible(false);
 
-        // Sync password fields
         pfPassword.textProperty().addListener((obs, o, n) -> {
             if (!passwordVisible) tfPasswordVisible.setText(n);
         });
@@ -51,7 +50,6 @@ public class LoginController implements Initializable {
             if (passwordVisible) pfPassword.setText(n);
         });
 
-        // Enter key triggers login
         tfNama.setOnAction(e -> pfPassword.requestFocus());
         pfPassword.setOnAction(e -> handleLogin());
         tfPasswordVisible.setOnAction(e -> handleLogin());
