@@ -1,45 +1,50 @@
-import java.util.regex.Pattern;
+package com.washie.service;
 
+import com.washie.model.ChatLog;
+import com.washie.model.User;
+import com.washie.repository.ChatLogRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+
+@Service
+@Transactional
 public class ChatService {
-    private InfoService infoService;
-    private LayananService layananService;
 
-    public ChatService() {
-        this.infoService = new InfoService();
-        this.layananService = new LayananService();
+    private final ChatLogRepository chatLogRepository;
+
+    public ChatService(ChatLogRepository chatLogRepository) {
+        this.chatLogRepository = chatLogRepository;
     }
 
-    public String prosesPesan(String inputTeks) {
-        if (inputTeks == null || inputTeks.trim().isEmpty()) {
-            return "Pesan kamu kosong. Silakan ketik pertanyaanmu ya!";
+    public void saveChatLog(User user, String sessionId, String judul, String pengirim, String pesan) {
+        ChatLog log = new ChatLog(user, sessionId, judul, pengirim, pesan);
+        chatLogRepository.save(log);
+    }
+
+    public List<ChatLog> getChatBySession(String sessionId) {
+        return chatLogRepository.findBySessionIdOrderByTimestampAsc(sessionId);
+    }
+
+    public List<Map<String, String>> getSesiByUser(User user) {
+        List<Object[]> raw = chatLogRepository.findSessionsByUser(user);
+        List<Map<String, String>> result = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (Object[] row : raw) {
+            String sid = (String) row[0];
+            String judul = (String) row[1];
+            if (seen.add(sid)) {
+                Map<String, String> map = new LinkedHashMap<>();
+                map.put("sessionId", sid);
+                map.put("judul", judul != null ? judul : "Percakapan");
+                result.add(map);
+            }
         }
-
-        String teks = inputTeks.toLowerCase();
-
-        if (cocok(teks, "jam|buka|tutup|operasional"))             return infoService.getJamOperasional();
-        if (cocok(teks, "lokasi|alamat|dimana|di mana"))           return infoService.getLokasi();
-        if (cocok(teks, "kontak|telepon|wa|whatsapp|hubungi|nomor")) return infoService.getKontak();
-
-        if (cocok(teks, "harga|tarif|biaya|berapa"))              return layananService.getDaftarHarga();
-        if (cocok(teks, "layanan|jenis|apa saja|fasilitas"))      return layananService.getDaftarLayanan();
-        if (cocok(teks, "pakaian|baju|celana|kaos|kemeja"))       return layananService.getInfoLayanan("Pakaian");
-        if (cocok(teks, "seprai|sprei|bed cover|selimut"))        return layananService.getInfoLayanan("Seprai");
-        if (cocok(teks, "handuk"))                                return layananService.getInfoLayanan("Handuk");
-        if (cocok(teks, "jaket|hoodie|sweater"))                  return layananService.getInfoLayanan("Jaket");
-        if (cocok(teks, "boneka|stuffed|plush"))                  return layananService.getInfoLayanan("Boneka");
-
-        // --- Fallback ---
-        return "Maaf, Washie belum mengerti pertanyaanmu.\n"
-                + "Kamu bisa tanya tentang:\n"
-                + "  • Layanan (pakaian, seprai, handuk, jaket, boneka)\n"
-                + "  • Harga / tarif\n"
-                + "  • Jam operasional\n"
-                + "  • Lokasi\n"
-                + "  • Kontak";
+        return result;
     }
 
-    /** Mengecek apakah teks cocok dengan pola Regex. */
-    private boolean cocok(String teks, String pola) {
-        return Pattern.compile(pola).matcher(teks).find();
+    public String generateSessionId() {
+        return UUID.randomUUID().toString();
     }
 }
