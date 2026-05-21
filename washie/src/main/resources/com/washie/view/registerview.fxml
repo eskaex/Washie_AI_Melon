@@ -4,13 +4,13 @@
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
-<HBox prefHeight="750" prefWidth="1100" stylesheets="@css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.washie.controller.RegisterController">
+<HBox prefHeight="750" prefWidth="1100" stylesheets="@../../../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.washie.controller.RegisterController">
 
     <!-- LEFT PANEL -->
     <VBox alignment="CENTER" prefWidth="500" spacing="20" styleClass="left-panel">
       <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
          <image>
-            <Image url="@image/washie%20logo%20kuning.png" />
+            <Image url="@../../../image/washie%20logo%20kuning.png" />
          </image>
       </ImageView>
         <Label alignment="CENTER" maxWidth="360" styleClass="left-tagline" text="Pembuatan akun" wrapText="true" />

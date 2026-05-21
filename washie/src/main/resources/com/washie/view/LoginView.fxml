@@ -4,21 +4,21 @@
 <?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
-<HBox prefHeight="750" prefWidth="1100" stylesheets="css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.washie.controller.LoginController">
+<HBox prefHeight="750" prefWidth="1100" stylesheets="../../../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.washie.controller.LoginController">
 
     <!-- LEFT PANEL -->
-    <VBox alignment="CENTER" prefWidth="500" spacing="20" styleClass="left-panel" stylesheets="@css/styles.css">
+    <VBox alignment="CENTER" prefWidth="500" spacing="20" styleClass="left-panel" stylesheets="@../../../css/styles.css">
       <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
          <image>
-            <Image url="@image/washie logo kuning.png" />
+            <Image url="@../../../image/washie logo kuning.png" />
          </image></ImageView>
         <Label alignment="CENTER" maxWidth="360" styleClass="left-tagline" text="Halo! Washie di sini untuk membantumu!" wrapText="true" />
         <Label alignment="CENTER" maxWidth="360" styleClass="left-sub" text="Virtual Assistant yang siap menjawab semua pertanyaanmu terkait laundry di Washie!" wrapText="true" />
     </VBox>
 
     <!-- RIGHT PANEL -->
-    <VBox alignment="CENTER" spacing="0" styleClass="right-panel" stylesheets="@css/styles.css" HBox.hgrow="ALWAYS">
-        <VBox alignment="CENTER_LEFT" maxWidth="420" spacing="10" stylesheets="@css/styles.css">
+    <VBox alignment="CENTER" spacing="0" styleClass="right-panel" stylesheets="@../../../css/styles.css" HBox.hgrow="ALWAYS">
+        <VBox alignment="CENTER_LEFT" maxWidth="420" spacing="10" stylesheets="@../../../css/styles.css">
             <Label styleClass="form-title" text="Selamat datang!" />
             <Label styleClass="form-sub" text="Silahkan login untuk melanjutkan." />
 
@@ -40,7 +40,7 @@
             <Label fx:id="lblError" maxWidth="420" styleClass="label-error" text="" wrapText="true" />
             <Region prefHeight="10" />
 
-            <Button maxWidth="420" onAction="#handleLogin" prefHeight="46" styleClass="btn-primary" stylesheets="@css/styles.css" text="Login" />
+            <Button maxWidth="420" onAction="#handleLogin" prefHeight="46" styleClass="btn-primary" stylesheets="@../../../css/styles.css" text="Login" />
 
             <HBox alignment="CENTER" maxWidth="420" spacing="4">
                 <Label styleClass="form-sub" text="Belum mempunyai akun?" />
