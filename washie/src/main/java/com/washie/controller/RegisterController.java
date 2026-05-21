@@ -7,40 +7,31 @@ import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import org.springframework.stereotype.Controller;
 
-public class RegisterController implements Initializable {
-    @FXML
-    TextField tfNama;
-    @FXML
-    TextField tfNoTelp;
-    @FXML
-    PasswordField pfPassword;
-    @FXML
-    TextField tfPasswordVisible;
-    @FXML
-    PasswordField pfKonfirmasi;
-    @FXML
-    TextField tfKonfirmasiVisible;
-    @FXML
-    Button btnTogglePass;
-    @FXML
-    Button btnToggleKonfirmasi;
-    @FXML
-    Button btnDaftar;
-    @FXML
-    Hyperlink hlLogin;
-    @FXML
-    Label lblError;
-    @FXML
-    Label lblSuccess;
+import java.net.URL;
+import java.util.ResourceBundle;
 
-    private boolean passVisible = false;
+@Controller
+public class RegisterController implements Initializable {
+
+    @FXML private TextField tfNama;
+    @FXML private TextField tfNoTelp;
+    @FXML private PasswordField pfPassword;
+    @FXML private TextField tfPasswordVisible;
+    @FXML private PasswordField pfKonfirmasi;
+    @FXML private TextField tfKonfirmasiVisible;
+    @FXML private Button btnTogglePass;
+    @FXML private Button btnToggleKonfirmasi;
+    @FXML private Label lblError;
+    @FXML private Label lblSuccess;
+
+    private boolean passVisible      = false;
     private boolean konfirmasiVisible = false;
 
-    private final UserService userService;
+    private final UserService  userService;
     private final SceneManager sceneManager;
 
     public RegisterController(UserService userService, SceneManager sceneManager) {
-        this.userService = userService;
+        this.userService  = userService;
         this.sceneManager = sceneManager;
     }
 
@@ -54,29 +45,27 @@ public class RegisterController implements Initializable {
         lblSuccess.setVisible(false);
     }
 
-    @FXML
-    private void handleTogglePass() {
+    @FXML private void handleTogglePass() {
         passVisible = !passVisible;
-        toggleField(pfPassword, tfPasswordVisible, passVisible);
-        btnTogglePass.setText(passVisible ? "🔒" : "👁");
+        toggle(pfPassword, tfPasswordVisible, passVisible);
+        btnTogglePass.setText(passVisible ? "👁" : "🙈");
     }
 
-    @FXML
-    private void handleToggleKonfirmasi() {
+    @FXML private void handleToggleKonfirmasi() {
         konfirmasiVisible = !konfirmasiVisible;
-        toggleField(pfKonfirmasi, tfKonfirmasiVisible, konfirmasiVisible);
-        btnToggleKonfirmasi.setText(konfirmasiVisible ? "🔒" : "👁");
+        toggle(pfKonfirmasi, tfKonfirmasiVisible, konfirmasiVisible);
+        btnToggleKonfirmasi.setText(konfirmasiVisible ? "👁" : "🙈");
     }
 
-    private void toggleField(PasswordField pf, TextField tf, boolean show) {
+    private void toggle(PasswordField pf, TextField tf, boolean show) {
         if (show) {
             tf.setText(pf.getText());
-            pf.setVisible(false); pf.setManaged(false);
-            tf.setVisible(true);  tf.setManaged(true);
+            pf.setVisible(false);  pf.setManaged(false);
+            tf.setVisible(true);   tf.setManaged(true);
         } else {
             pf.setText(tf.getText());
-            tf.setVisible(false); tf.setManaged(false);
-            pf.setVisible(true);  pf.setManaged(true);
+            tf.setVisible(false);  tf.setManaged(false);
+            pf.setVisible(true);   pf.setManaged(true);
         }
     }
 
@@ -90,15 +79,38 @@ public class RegisterController implements Initializable {
         lblError.setVisible(false);
         lblSuccess.setVisible(false);
 
-        if (nama.isEmpty()) { showError("Nama lengkap tidak boleh kosong."); return; }
-        if (pass.length() < 6) { showError("Password minimal 6 karakter."); return; }
-        if (!pass.equals(konfir)) { showError("Konfirmasi password tidak cocok."); return; }
+        if (nama.isEmpty())      { showError("Nama lengkap tidak boleh kosong.");   return; }
+        if (pass.length() < 6)   { showError("Password minimal 6 karakter.");       return; }
+        if (!pass.equals(konfir)) { showError("Konfirmasi password tidak cocok.");   return; }
 
         try {
             userService.register(nama, noTelp.isEmpty() ? null : noTelp, pass);
+            tfNama.clear();
+            tfNoTelp.clear();
+
+            if (passVisible) {
+                tfPasswordVisible.clear();
+                pfPassword.clear();
+                passVisible = false;
+                toggle(pfPassword, tfPasswordVisible, false);
+                btnTogglePass.setText("🙈");
+            } else {
+                pfPassword.clear();
+            }
+
+            if (konfirmasiVisible) {
+                tfKonfirmasiVisible.clear();
+                pfKonfirmasi.clear();
+                konfirmasiVisible = false;
+                toggle(pfKonfirmasi, tfKonfirmasiVisible, false);
+                btnToggleKonfirmasi.setText("🙈");
+            } else {
+                pfKonfirmasi.clear();
+            }
+
             lblSuccess.setText("Akun berhasil dibuat! Silahkan login.");
             lblSuccess.setVisible(true);
-            tfNama.clear(); tfNoTelp.clear(); pfPassword.clear(); pfKonfirmasi.clear();
+
         } catch (IllegalArgumentException e) {
             showError(e.getMessage());
         }
@@ -107,7 +119,7 @@ public class RegisterController implements Initializable {
     @FXML
     private void handleGoLogin() {
         try {
-            sceneManager.switchTo("/com/washie/view/loginview.fxml");
+            sceneManager.switchTo("/com/washie/view/LoginView.fxml");
         } catch (Exception e) {
             showError("Gagal membuka halaman login.");
         }
