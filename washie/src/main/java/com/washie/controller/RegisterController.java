@@ -118,4 +118,3 @@ public class RegisterController implements Initializable {
         lblError.setVisible(true);
     }
 }
-}

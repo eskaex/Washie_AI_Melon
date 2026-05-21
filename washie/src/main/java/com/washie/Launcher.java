@@ -1,9 +1,7 @@
-package com.washie.washie;
-
 import javafx.application.Application;
 
 public class Launcher {
     public static void main(String[] args) {
-        Application.launch(HelloApplication.class, args);
+        Application.launch(com.washie.washie.HelloApplication.class, args);
     }
 }
