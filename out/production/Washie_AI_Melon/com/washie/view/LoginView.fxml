@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox prefHeight="750" prefWidth="1100" stylesheets="css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.washie.controller.LoginController">
+
+    <!-- LEFT PANEL -->
+    <VBox alignment="CENTER" prefWidth="500" spacing="20" styleClass="left-panel" stylesheets="@css/styles.css">
+      <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
+         <image>
+            <Image url="@image/washie logo kuning.png" />
+         </image></ImageView>
+        <Label alignment="CENTER" maxWidth="360" styleClass="left-tagline" text="Halo! Washie di sini untuk membantumu!" wrapText="true" />
+        <Label alignment="CENTER" maxWidth="360" styleClass="left-sub" text="Virtual Assistant yang siap menjawab semua pertanyaanmu terkait laundry di Washie!" wrapText="true" />
+    </VBox>
+
+    <!-- RIGHT PANEL -->
+    <VBox alignment="CENTER" spacing="0" styleClass="right-panel" stylesheets="@css/styles.css" HBox.hgrow="ALWAYS">
+        <VBox alignment="CENTER_LEFT" maxWidth="420" spacing="10" stylesheets="@css/styles.css">
+            <Label styleClass="form-title" text="Selamat datang!" />
+            <Label styleClass="form-sub" text="Silahkan login untuk melanjutkan." />
+
+            <Region prefHeight="20" />
+
+            <Label styleClass="field-label" text="NAMA LENGKAP" />
+            <TextField fx:id="tfNama" maxWidth="420" promptText="Masukkan nama lengkap" styleClass="field-input" />
+
+            <Region prefHeight="8" />
+
+            <Label styleClass="field-label" text="PASSWORD" />
+            <StackPane maxWidth="420">
+                <PasswordField fx:id="pfPassword" promptText="Masukkan password" styleClass="field-input" />
+                <TextField fx:id="tfPasswordVisible" promptText="Masukkan password" styleClass="field-input" />
+                <Button fx:id="btnTogglePassword" onAction="#handleTogglePassword" styleClass="btn-toggle-pass" text="🙈" StackPane.alignment="CENTER_RIGHT" />
+            </StackPane>
+
+            <Region prefHeight="6" />
+            <Label fx:id="lblError" maxWidth="420" styleClass="label-error" text="" wrapText="true" />
+            <Region prefHeight="10" />
+
+            <Button maxWidth="420" onAction="#handleLogin" prefHeight="46" styleClass="btn-primary" stylesheets="@css/styles.css" text="Login" />
+
+            <HBox alignment="CENTER" maxWidth="420" spacing="4">
+                <Label styleClass="form-sub" text="Belum mempunyai akun?" />
+                <Hyperlink fx:id="hlDaftar" onAction="#handleGoDaftar" styleClass="link-action" text="Daftar sekarang" />
+            </HBox>
+        </VBox>
+    </VBox>
+</HBox>
