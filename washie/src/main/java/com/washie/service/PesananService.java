@@ -1,4 +1,4 @@
-package service;
+package com.washie.service;
 
 import com.washie.model.Pesanan;
 import com.washie.model.User;

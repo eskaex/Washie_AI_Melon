@@ -1,4 +1,4 @@
-package controller;
+package com.washie.controller;
 
 import com.washie.model.Pesanan;
 import com.washie.model.PesananItem;

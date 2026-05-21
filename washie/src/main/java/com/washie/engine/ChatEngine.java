@@ -1,11 +1,9 @@
 package com.washie.engine;
 
-import com.washie.model.InfoEntity;
 import com.washie.model.Layanan;
 import com.washie.service.InfoService;
 import com.washie.service.LayananService;
 import com.washie.service.PesananService;
-import com.washie.service.PesananService.ItemDraft;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -24,111 +22,134 @@ public class ChatEngine {
         this.layananService = l; this.pesananService = p; this.infoService = i;
     }
 
-        public ConvState state      = ConvState.IDLE;
-        public Layanan layanan;
-        public double beratKg    = 0;
-        public int jumlahItem = 0;
-        public String kecepatan;
-        public double expressTotal = 0;
-        public List<String> addonNama  = new ArrayList<>();
-        public List<Double> addonHarga = new ArrayList<>();
-        public List<ItemDraft> draftItems = new ArrayList<>();
+    // =========================================================================
+    //  SESSION
+    // =========================================================================
+    public static class ChatSession {
+        public ConvState    state        = ConvState.IDLE;
+        public Layanan      layanan;
+        public double       berat        = 0;
+        public String       kecepatan;
+        public double       expressHarga = 0;
+        public List<String> addonNama    = new ArrayList<>();
+        public List<Double> addonHarga   = new ArrayList<>();
     }
 
-    public enum ConvState {
-        IDLE,
-        TANYA_BERAT,
-        TANYA_JUMLAH,
-        PILIH_KECEPATAN,
-        PILIH_ADDON,
-        TANYA_TAMBAH_ITEM,
-        KONFIRMASI
-    }
+    public enum ConvState { IDLE, TANYA_BERAT, PILIH_KECEPATAN, PILIH_ADDON, KONFIRMASI }
 
+    // =========================================================================
+    //  ORDER KEYWORD MAP
+    // =========================================================================
     private static final List<String[]> KEYWORD_MAP = new ArrayList<>();
     static {
-        KEYWORD_MAP.add(new String[]{"cuci\\s*(\\+\\s*)?setrika|wash.*iron",             "Cuci + Setrika"});
-        KEYWORD_MAP.add(new String[]{"cuci\\s*kering(?!\\s*setrika)|wash\\s*only",       "Cuci Kering"});
-        KEYWORD_MAP.add(new String[]{"setrika\\s*(saja|aja|only|doank)|ironing\\s*only", "Setrika Saja"});
-        KEYWORD_MAP.add(new String[]{"dry\\s*clean",                                     "Dry Cleaning"});
-        KEYWORD_MAP.add(new String[]{"bedcover|bed\\s*cover",                            "Cuci Bedcover"});
-        KEYWORD_MAP.add(new String[]{"sprei|sarung\\s*bantal",                           "Cuci Sprei"});
-        KEYWORD_MAP.add(new String[]{"selimut|blanket",                                  "Cuci Selimut"});
-        KEYWORD_MAP.add(new String[]{"handuk|towel",                                     "Cuci Handuk"});
-        KEYWORD_MAP.add(new String[]{"gorden|gordyn|vitrase|tirai",                      "Cuci Gorden"});
-        KEYWORD_MAP.add(new String[]{"karpet|carpet",                                    "Cuci Karpet"});
-        KEYWORD_MAP.add(new String[]{"boneka|stuffed|teddy",                             "Cuci Boneka"});
+        KEYWORD_MAP.add(new String[]{"cuci\\s*(\\+\\s*)?setrika|wash.*iron",       "Cuci + Setrika"});
+        KEYWORD_MAP.add(new String[]{"cuci\\s*kering(?!\\s*setrika)|wash\\s*only", "Cuci Kering"});
+        KEYWORD_MAP.add(new String[]{"setrika\\s*(saja|aja|only)|ironing",          "Setrika Saja"});
+        KEYWORD_MAP.add(new String[]{"dry\\s*clean",                                "Dry Cleaning"});
+        KEYWORD_MAP.add(new String[]{"bedcover|bed\\s*cover",                       "Cuci Bedcover"});
+        KEYWORD_MAP.add(new String[]{"sprei|sarung\\s*bantal",                      "Cuci Sprei"});
+        KEYWORD_MAP.add(new String[]{"selimut|blanket",                             "Cuci Selimut"});
+        KEYWORD_MAP.add(new String[]{"handuk|towel",                                "Cuci Handuk"});
+        KEYWORD_MAP.add(new String[]{"gorden|gordyn|vitrase|tirai",                 "Cuci Gorden"});
+        KEYWORD_MAP.add(new String[]{"karpet|carpet",                               "Cuci Karpet"});
+        KEYWORD_MAP.add(new String[]{"boneka|stuffed|teddy",                        "Cuci Boneka"});
     }
 
     private static final List<String[]> INFO_MAP = new ArrayList<>();
     static {
-        String[] names = {"Cuci + Setrika","Cuci Kering","Setrika Saja","Dry Cleaning",
-                "Cuci Bedcover","Cuci Sprei","Cuci Selimut","Cuci Handuk",
-                "Cuci Gorden","Cuci Karpet","Cuci Boneka"};
-        String[] regex = {"cuci.*setrika|cuci\\+setrika","cuci\\s*kering","setrika\\s*saja","dry\\s*clean",
-                "bedcover","sprei","selimut","handuk","gorden","karpet","boneka"};
-        for (int i = 0; i < names.length; i++) {
-            INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*(" + regex[i] + ")",           "HARGA",    names[i]});
-            INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*(" + regex[i] + ")",  "ESTIMASI", names[i]});
-            INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*(" + regex[i] + ")", "DESKRIPSI",names[i]});
-        }
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*cuci\\s*kering",    "HARGA","Cuci Kering"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*cuci.*setrika",     "HARGA","Cuci + Setrika"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*setrika\\s*saja",   "HARGA","Setrika Saja"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*dry\\s*clean",      "HARGA","Dry Cleaning"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*bedcover",          "HARGA","Cuci Bedcover"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*boneka",            "HARGA","Cuci Boneka"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*karpet",            "HARGA","Cuci Karpet"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*selimut",           "HARGA","Cuci Selimut"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*sprei",             "HARGA","Cuci Sprei"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*handuk",            "HARGA","Cuci Handuk"});
+        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*gorden",            "HARGA","Cuci Gorden"});
+        // Estimasi — semua layanan
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*cuci\\s*kering",  "ESTIMASI","Cuci Kering"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*cuci.*setrika",   "ESTIMASI","Cuci + Setrika"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*setrika\\s*saja", "ESTIMASI","Setrika Saja"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*dry\\s*clean",    "ESTIMASI","Dry Cleaning"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*bedcover",        "ESTIMASI","Cuci Bedcover"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*selimut",         "ESTIMASI","Cuci Selimut"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*sprei",           "ESTIMASI","Cuci Sprei"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*handuk",          "ESTIMASI","Cuci Handuk"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*gorden",          "ESTIMASI","Cuci Gorden"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*karpet",          "ESTIMASI","Cuci Karpet"});
+        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*boneka",          "ESTIMASI","Cuci Boneka"});
+        // Deskripsi — semua layanan
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*dry\\s*clean",   "DESKRIPSI","Dry Cleaning"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*cuci\\s*kering", "DESKRIPSI","Cuci Kering"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*cuci.*setrika",  "DESKRIPSI","Cuci + Setrika"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*setrika\\s*saja","DESKRIPSI","Setrika Saja"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*bedcover",       "DESKRIPSI","Cuci Bedcover"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*boneka",         "DESKRIPSI","Cuci Boneka"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*karpet",         "DESKRIPSI","Cuci Karpet"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*selimut",        "DESKRIPSI","Cuci Selimut"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*gorden",         "DESKRIPSI","Cuci Gorden"});
+        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*handuk",         "DESKRIPSI","Cuci Handuk"});
     }
 
+    // LOKASI dicek sebelum order agar "laundry di mana" tidak salah routing
     private static final String[] LOKASI_KW = {
-            "di mana","dimana","lokasi","alamat","ada di mana","tempatnya", "serlok", "shareloc",
-            "laundry di mana","laundry ada di","di mana laundry","washie di mana","di mana washie",
-            "kontak","whatsapp","wa ","instagram","ig ","hubungi","nomor","no hp","nomer hp"
+            "di mana","dimana","lokasi","alamat","ada di mana","tempatnya",
+            "laundry di mana","laundry ada di","di mana laundry",
+            "washie di mana","di mana washie","kontak","whatsapp","wa ","instagram",
+            "ig ","hubungi","nomor","no hp","nomer hp"
     };
+
     private static final String[] JAM_KW = {
-            "jam buka","jam tutup","jam operasional","buka jam","tutup jam","jam berapa",
-            "operasional","waktu buka","hari apa","buka hari","kapan buka",
-            "hari senin","hari minggu","hari libur","buka sampai", "jam brp"
+            "jam buka","jam tutup","jam operasional","buka jam","tutup jam",
+            "jam berapa","operasional","waktu buka","hari apa","buka hari",
+            "kapan buka","hari senin","hari minggu","hari libur","buka sampai"
     };
+
     private static final String[] DAFTAR_KW = {
-            "daftar layanan","list layanan","layanan apa","layanan ada apa","ada layanan apa",
-            "apa saja layanan","layanan tersedia","pilihan layanan","menu layanan",
-            "semua layanan","layanan yang ada","ada apa aja","apa aja layanan"
-    };
-    private static final String[] PENGUMUMAN_KW = {
-            "pengumuman","info terbaru","ada info","ada promo","promo","info hari ini",
-            "berita","update","announcement","informasi terbaru"
+            "daftar layanan","list layanan","layanan apa","layanan ada apa",
+            "ada layanan apa","apa saja layanan","layanan tersedia","pilihan layanan",
+            "menu layanan","semua layanan","layanan yang ada","layanan ada apa aja",
+            "ada apa aja","apa aja layanan"
     };
 
-    private static final Pattern ANGKA_PAT =
-            Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(?:kg|kilo(?:gram)?|item|pcs|buah|lembar|meter|helai)?",
-                    Pattern.CASE_INSENSITIVE);
+    private static final Pattern BERAT_PAT =
+            Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(?:kg|kilo(?:gram)?)?", Pattern.CASE_INSENSITIVE);
 
+    // =========================================================================
+    //  MAIN PROCESS
+    // =========================================================================
     public BotResponse process(String input, ChatSession session) {
         if (input == null || input.isBlank())
             return txt("Maaf, saya tidak mengerti. Coba ketik ulang ya.");
         String raw   = input.trim();
         String lower = raw.toLowerCase();
-
         return switch (session.state) {
-            case IDLE -> handleIdle(raw, lower, session);
-            case TANYA_BERAT -> handleTanyaBerat(raw, lower, session);
-            case TANYA_JUMLAH -> handleTanyaJumlah(raw, lower, session);
+            case IDLE            -> handleIdle(raw, lower, session);
+            case TANYA_BERAT     -> handleTanyaBerat(raw, lower, session);
             case PILIH_KECEPATAN -> handlePilihKecepatan(lower, session);
-            case PILIH_ADDON -> handlePilihAddon(lower, session);
-            case TANYA_TAMBAH_ITEM -> handleTanyaTambahItem(raw, lower, session);
-            case KONFIRMASI -> handleKonfirmasi(lower, session);
+            case PILIH_ADDON     -> handlePilihAddon(lower, session);
+            case KONFIRMASI      -> handleKonfirmasi(lower, session);
         };
     }
 
+    // =========================================================================
+    //  IDLE
+    // =========================================================================
     private BotResponse handleIdle(String raw, String lower, ChatSession session) {
         String kode = cariKode(raw);
         if (kode != null) return cekStatus(kode);
-        if (has(lower,"status pesanan","cek pesanan","lacak pesanan", "info pesanan"))
+        if (has(lower,"status pesanan","cek pesanan","lacak pesanan"))
             return txt("Masukkan kode pesanan kamu.\nContoh: cek WS-001");
 
         if (has(lower,"halo","hai","hello","hi ","selamat pagi","selamat siang",
-                "selamat sore","selamat malam","hei","assalamu","permisi", "oy", "oi"))
+                "selamat sore","selamat malam","hei","assalamu"))
             return salam();
 
-        for (String kw : LOKASI_KW)    if (lower.contains(kw)) return respLokasi();
-        for (String kw : JAM_KW)       if (lower.contains(kw)) return respJam();
-        for (String kw : DAFTAR_KW)    if (lower.contains(kw)) return respDaftarLayanan();
-        for (String kw : PENGUMUMAN_KW) if (lower.contains(kw)) return respPengumuman();
+        for (String kw : LOKASI_KW) if (lower.contains(kw)) return lokasi();
+        for (String kw : JAM_KW)    if (lower.contains(kw)) return jamOps();
+        for (String kw : DAFTAR_KW) if (lower.contains(kw)) return daftarLayanan();
 
         for (String[] row : INFO_MAP)
             if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find())
@@ -137,75 +158,69 @@ public class ChatEngine {
         for (String[] row : KEYWORD_MAP) {
             if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find()) {
                 Optional<Layanan> opt = cariLayananDb(row[1]);
-                if (opt.isEmpty())
-                    return txt("Maaf, layanan " + row[1] + " belum tersedia atau nonaktif.");
-                return mulaiItem(opt.get(), raw, session);
+                if (opt.isEmpty()) return txt("Maaf, layanan " + row[1] + " belum tersedia atau nonaktif.");
+                return mulaiOrder(opt.get(), extractBerat(raw), session);
             }
         }
 
         if (has(lower,"cuci baju","cuci pakaian","mau laundry","mau cuci",
-                "pengen laundry","ingin laundry","laundry dong","laundry ya", "mau nyuci",
-                "info laundry", "mau pesan"))
-            return respTanyaLayanan();
+                "pengen laundry","ingin laundry","laundry dong","laundry ya","laundry nih"))
+            return tanyaLayanan();
 
-        if (has(lower,"harga","tarif","biaya")) return respDaftarLayanan();
+        if (has(lower,"harga","tarif","biaya")) return daftarLayanan();
 
-        if (has(lower,"terima kasih","makasih","thanks","thx","tq","mksih","terimakasih", "mksh"))
+        // Fix #2: user tanya pengumuman / info terbaru
+        if (has(lower,"pengumuman","info terbaru","ada info","ada promo","promo",
+                "info hari ini","berita","update","announcement"))
+            return getPengumuman();
+
+        if (has(lower,"terima kasih","makasih","thanks","thx","tq"))
             return txt("Sama-sama! Senang bisa membantu.");
 
-        return respFallback();
+        return fallback();
     }
 
+    // =========================================================================
+    //  TANYA BERAT
+    // =========================================================================
     private BotResponse handleTanyaBerat(String raw, String lower, ChatSession session) {
-        if (isBatal(lower)) { resetItem(session); return txt("Item dibatalkan. " + lanjutPrompt(session)); }
-        double angka = extractAngka(raw);
-        if (angka <= 0) return txt("Masukkan berat dalam kg.\nContoh: 2 kg  atau  1.5 kg");
-        session.beratKg = angka;
-        return lanjutSetelahKuantitas(session);
-    }
-
-    private BotResponse handleTanyaJumlah(String raw, String lower, ChatSession session) {
-        if (isBatal(lower)) { resetItem(session); return txt("Item dibatalkan. " + lanjutPrompt(session)); }
-        double angka = extractAngka(raw);
-        if (angka <= 0 || angka != Math.floor(angka))
-            return txt("Masukkan jumlah item (bilangan bulat).\nContoh: 1  atau  3 item");
-        session.jumlahItem = (int) angka;
-        return lanjutSetelahKuantitas(session);
-    }
-
-    private BotResponse lanjutSetelahKuantitas(ChatSession session) {
-        if (session.layanan.isBisaExpress()) {
-            session.state = ConvState.PILIH_KECEPATAN;
-            return promptKecepatan(session);
+        if (has(lower,"batal","cancel","tidak jadi","ga jadi")) {
+            reset(session); return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?");
         }
-        session.kecepatan = "STANDAR";
-        session.expressTotal = 0;
-        session.state = ConvState.PILIH_ADDON;
+        double berat = extractBerat(raw);
+        if (berat <= 0) return txt("Masukkan berat dalam kg.\nContoh: 2 kg atau 1.5 kg");
+        session.berat = berat;
+        if (session.layanan.isBisaExpress()) {
+            session.state = ConvState.PILIH_KECEPATAN; return promptKecepatan(session);
+        }
+        session.kecepatan = "STANDAR"; session.state = ConvState.PILIH_ADDON;
         return promptAddon();
     }
 
+    // =========================================================================
+    //  PILIH KECEPATAN
+    // =========================================================================
     private BotResponse handlePilihKecepatan(String lower, ChatSession session) {
-        if (isBatal(lower)) { resetItem(session); return txt("Item dibatalkan. " + lanjutPrompt(session)); }
+        if (has(lower,"batal","cancel")) { reset(session); return txt("Pesanan dibatalkan."); }
         if (has(lower,"express","ekspres","cepat","kilat","1 hari","sehari")) {
             session.kecepatan    = "EXPRESS";
-            session.expressTotal = hitungExpress(session);
-            session.state        = ConvState.PILIH_ADDON;
-            return promptAddon();
+            session.expressHarga = getExpressSurchargeTotal(session);
+            session.state = ConvState.PILIH_ADDON; return promptAddon();
         }
         if (has(lower,"standar","standard","biasa","normal","reguler")) {
-            session.kecepatan    = "STANDAR";
-            session.expressTotal = 0;
-            session.state        = ConvState.PILIH_ADDON;
-            return promptAddon();
+            session.kecepatan = "STANDAR"; session.expressHarga = 0;
+            session.state = ConvState.PILIH_ADDON; return promptAddon();
         }
         return promptKecepatan(session);
     }
 
+    // =========================================================================
+    //  PILIH ADDON — addon dari tabel layanan (tipe=ADDON)
+    // =========================================================================
     private BotResponse handlePilihAddon(String lower, ChatSession session) {
-        if (isBatal(lower)) { resetItem(session); return txt("Item dibatalkan. " + lanjutPrompt(session)); }
-
+        if (has(lower,"batal","cancel")) { reset(session); return txt("Pesanan dibatalkan."); }
         if (has(lower,"tidak","tidak perlu","no","gak","ga","tanpa","skip","langsung","udah","lanjut")) {
-            return selesaiSatuItem(session);
+            session.state = ConvState.KONFIRMASI; return tampilNota(session);
         }
 
         List<Layanan> addons = layananService.getAddonAktif();
@@ -214,372 +229,282 @@ public class ChatEngine {
         if (has(lower,"keduanya","semua","all","both")) {
             for (Layanan a : addons)
                 if (!session.addonNama.contains(a.getNamaLayanan())) {
-                    session.addonNama.add(a.getNamaLayanan());
-                    session.addonHarga.add(a.getHarga());
-                    ada = true;
+                    session.addonNama.add(a.getNamaLayanan()); session.addonHarga.add(a.getHarga()); ada = true;
                 }
         } else {
             for (Layanan a : addons) {
                 if (session.addonNama.contains(a.getNamaLayanan())) continue;
-                if (addonDipilih(a.getNamaLayanan().toLowerCase(), lower)) {
-                    session.addonNama.add(a.getNamaLayanan());
-                    session.addonHarga.add(a.getHarga());
-                    ada = true;
+
+                // Fix #2: match berdasarkan NAMA LENGKAP addon (exact atau near-exact),
+                // BUKAN substring kata — agar "pewangi premium" tidak trigger "pewangi luxury"
+                boolean dipilih = addonDipilih(a.getNamaLayanan().toLowerCase(), lower);
+
+                if (dipilih) {
+                    session.addonNama.add(a.getNamaLayanan()); session.addonHarga.add(a.getHarga()); ada = true;
                 }
             }
         }
 
-        if (ada) return selesaiSatuItem(session);
-
-        return txt("Maaf, saya tidak mengenali pilihan tersebut.\n\n" + buatOpsiAddon() +
-                "Ketik nama add-on, atau ketik tidak jika tidak perlu.");
+        if (ada) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        return txt("Maaf, saya tidak mengenali pilihannya.\n\n" + opsiAddon());
     }
 
-    private BotResponse selesaiSatuItem(ChatSession session) {
-        double subtotal   = hitungSubtotal(session);
-        double addonTotal = session.addonHarga.stream().mapToDouble(Double::doubleValue).sum();
-        double totalItem  = subtotal + session.expressTotal + addonTotal;
+    /**
+     * Fix #2: Menentukan apakah user memilih addon tertentu.
+     * Matching dilakukan per nama lengkap addon, bukan per kata tunggal.
+     * Ini mencegah "pewangi premium" juga memilih "pewangi luxury".
+     */
+    private boolean addonDipilih(String namaAddon, String userInput) {
+        // 1. Exact match nama lengkap
+        if (userInput.contains(namaAddon)) return true;
 
-        ItemDraft draft = new ItemDraft(
-                session.layanan,
-                session.beratKg,
-                session.jumlahItem,
-                session.kecepatan,
-                session.expressTotal,
-                String.join(", ", session.addonNama),
-                addonTotal,
-                subtotal,
-                totalItem
-        );
-        session.draftItems.add(draft);
+        // 2. Match khusus per kategori addon yang sudah diketahui
+        // Softener saja (tanpa anti)
+        if (namaAddon.equals("extra softener"))
+            return has(userInput,"extra softener","extra softner") ||
+                    (has(userInput,"softener","pelembut") && !has(userInput,"anti","antiseptik","septik","kuman"));
 
-        resetItem(session);
+        // Anti-septik saja (tanpa softener)
+        if (namaAddon.equals("anti-septik") || namaAddon.equals("anti septik"))
+            return has(userInput,"anti-septik","anti septik","antiseptik") ||
+                    (has(userInput,"kuman","antibakteri","septik") && !has(userInput,"softener","pelembut"));
 
-        session.state = ConvState.TANYA_TAMBAH_ITEM;
+        // Paket softener+anti (harus sebut KEDUANYA)
+        if (namaAddon.contains("softener") && namaAddon.contains("anti"))
+            return (has(userInput,"softener") && has(userInput,"anti","antiseptik","septik")) ||
+                    has(userInput,"softener anti","softener+anti","paket softener");
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("Item ditambahkan!\n\n");
-        sb.append(ringkasanDraftSementara(session));
-        sb.append("\nApakah ingin menambah layanan lagi?\n");
-        sb.append("- Ketik ya / nama layanan → tambah item baru\n");
-        sb.append("- Ketik selesai / tidak   → konfirmasi pesanan");
-        return txt(sb.toString());
-    }
-
-    private BotResponse handleTanyaTambahItem(String raw, String lower, ChatSession session) {
-        if (has(lower,"batal semua","cancel semua","batal pesanan")) {
-            resetSemua(session);
-            return txt("Semua pesanan dibatalkan. Ada yang bisa saya bantu?");
-        }
-
-        if (has(lower,"selesai","tidak","no","gak","ga","sudah","cukup","lanjut konfirmasi")) {
-            session.state = ConvState.KONFIRMASI;
-            return tampilNota(session);
-        }
-
-        String rawCheck = lower.replace("ya ","").replace("iya ","").trim();
-
-        for (String[] row : KEYWORD_MAP) {
-            if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find()) {
-                Optional<Layanan> opt = cariLayananDb(row[1]);
-                if (opt.isPresent()) {
-                    session.state = ConvState.IDLE;
-                    return mulaiItem(opt.get(), raw, session);
-                }
+        // 3. Untuk addon lain (misal pewangi premium, pewangi luxury, dll):
+        //    user harus menyebut NAMA LENGKAP atau frasa yang cukup unik.
+        //    Ambil semua kata >= 4 huruf dari nama addon, semua harus ada di input user.
+        String[] words = namaAddon.split("[\\s\\-+]+");
+        int matchCount = 0;
+        int required   = 0;
+        for (String w : words) {
+            if (w.length() >= 4) {
+                required++;
+                if (userInput.contains(w)) matchCount++;
             }
         }
-
-        if (has(lower,"ya","iya","yes","tambah","tambah lagi")) {
-            session.state = ConvState.IDLE;
-            return respTanyaLayanan();
-        }
-
-        return txt("Ketik nama layanan untuk menambah (misal: cuci kering 1 kg),\n" +
-                "atau ketik selesai untuk konfirmasi pesanan.");
+        // Semua kata signifikan harus cocok (bukan hanya sebagian)
+        return required > 0 && matchCount == required;
     }
 
+    // =========================================================================
+    //  KONFIRMASI
+    // =========================================================================
     private BotResponse handleKonfirmasi(String lower, ChatSession session) {
-        if (has(lower,"ya","iya","yes","ok","oke","betul","benar","konfirmasi","setuju","pesan"))
+        if (has(lower,"ya","iya","yes","ok","oke","betul","benar","konfirmasi","lanjut","setuju","pesan"))
             return simpanPesanan(session);
-        if (isBatal(lower)) {
-            resetSemua(session);
-            return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?");
+        if (has(lower,"tidak","batal","cancel","no","gak","ga")) {
+            reset(session); return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?");
         }
         if (has(lower,"ubah","ganti","edit","salah","ulang")) {
-            resetSemua(session);
-            return txt("Oke, mari ulangi dari awal.\nKetik kembali kebutuhan laundry Anda.");
+            reset(session); return txt("Oke, mari ulangi.\nKetik kembali kebutuhan laundry Anda.");
         }
-        return txt("Mohon konfirmasi:\n" +
-                "- Ketik ya    → simpan pesanan\n" +
-                "- Ketik batal → batalkan\n" +
-                "- Ketik ubah  → ulangi dari awal");
+        return txt("Mohon konfirmasi:\n- Ketik ya untuk konfirmasi\n- Ketik batal untuk membatalkan\n- Ketik ubah untuk mengulang");
     }
 
-    private BotResponse mulaiItem(Layanan layanan, String raw, ChatSession session) {
+    // =========================================================================
+    //  FLOW HELPERS
+    // =========================================================================
+    private BotResponse mulaiOrder(Layanan layanan, double berat, ChatSession session) {
         session.layanan = layanan;
-        double angka    = extractAngka(raw);
-
-        if (layanan.isPerKg()) {
-            if (angka > 0) { session.beratKg = angka; return lanjutSetelahKuantitas(session); }
-            session.state = ConvState.TANYA_BERAT;
-            return txt("Layanan " + layanan.getNamaLayanan() + " — Rp" + fmt(layanan.getHarga()) + "/kg\n\n" +
-                    "Berapa berat pakaiannya? (dalam kg)\n" +
-                    "Contoh: 2 kg  atau  1.5 kg");
-        } else {
-            if (angka > 0 && angka == Math.floor(angka)) {
-                session.jumlahItem = (int) angka;
-                return lanjutSetelahKuantitas(session);
-            }
-            session.state = ConvState.TANYA_JUMLAH;
-            return txt("Layanan " + layanan.getNamaLayanan() + " — Rp" + fmt(layanan.getHarga()) + "/item\n\n" +
-                    "Berapa jumlah item yang akan dicuci?\n" +
-                    "Contoh: 1 item  atau  2");
+        if (!layanan.isPerKg()) {
+            if (layanan.isBisaExpress()) { session.state = ConvState.PILIH_KECEPATAN; return promptKecepatan(session); }
+            session.kecepatan = "STANDAR"; session.state = ConvState.PILIH_ADDON; return promptAddon();
         }
+        if (berat > 0) {
+            session.berat = berat;
+            if (layanan.isBisaExpress()) { session.state = ConvState.PILIH_KECEPATAN; return promptKecepatan(session); }
+            session.kecepatan = "STANDAR"; session.state = ConvState.PILIH_ADDON; return promptAddon();
+        }
+        session.state = ConvState.TANYA_BERAT;
+        return txt("Layanan " + layanan.getNamaLayanan() + " dipilih.\n\nBerapa berat pakaiannya? (dalam kg)\nContoh: 2 kg atau 1.5 kg");
     }
 
     private BotResponse promptKecepatan(ChatSession session) {
-        double rate   = getExpressRate(session.layanan);
+        double surge  = getExpressSurchargeRate(session.layanan);
         String satuan = session.layanan.isPerKg() ? "/kg" : "/item";
-        return txt("Pilih kecepatan untuk " + session.layanan.getNamaLayanan() + ":\n\n" +
-                "- Standar : " + session.layanan.getEstimasiWaktu() + "  (tidak ada biaya tambahan)\n" +
-                "- Express : 1 Hari Kerja  (+Rp" + fmt(rate) + satuan + "," +
-                " total surcharge Rp" + fmt(hitungExpress(session)) + ")\n\n" +
+        return txt("Pilih kecepatan layanan:\n\n" +
+                "- Standar : " + session.layanan.getEstimasiWaktu() + " (harga normal)\n" +
+                "- Express : 1 Hari Kerja (+Rp" + String.format("%.0f", surge) + satuan + ")\n\n" +
                 "Ketik standar atau express");
     }
 
     private BotResponse promptAddon() {
-        String opsi = buatOpsiAddon();
-        if (opsi.isBlank())
-            return txt("Tidak ada produk tambahan tersedia.\n\nKetik lanjut untuk melanjutkan.");
+        String opsi = opsiAddon();
+        if (opsi.isBlank()) {
+            // Tidak ada addon → langsung konfirmasi
+            return txt("Apakah ingin menambahkan produk tambahan?\nSaat ini belum ada produk tambahan tersedia.\n\nKetik lanjut untuk konfirmasi.");
+        }
         return txt("Apakah ingin menambahkan produk tambahan?\n\n" + opsi +
-                "Ketik nama produk, atau ketik tidak jika tidak perlu.");
+                "Ketik nama produk yang diinginkan, atau ketik tidak jika tidak perlu.");
     }
 
-    private String buatOpsiAddon() {
+    private String opsiAddon() {
         List<Layanan> addons = layananService.getAddonAktif();
         if (addons.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
         for (Layanan a : addons)
-            sb.append("- ").append(a.getNamaLayanan()).append("  +Rp").append(fmt(a.getHarga())).append("\n");
-        return sb.append("\n").toString();
-    }
-
-    private String lanjutPrompt(ChatSession session) {
-        if (!session.draftItems.isEmpty())
-            return "Draft sebelumnya masih ada. Ketik selesai untuk konfirmasi, atau tambah layanan baru.";
-        return "Ada yang bisa saya bantu?";
-    }
-
-    private String ringkasanDraftSementara(ChatSession session) {
-        if (session.draftItems.isEmpty()) return "";
-        StringBuilder sb = new StringBuilder("Item sejauh ini:\n");
-        int no = 1;
-        double grandTotal = 0;
-        for (ItemDraft d : session.draftItems) {
-            sb.append(no++).append(". ").append(d.layanan.getNamaLayanan());
-            if (d.layanan.isPerKg() && d.beratKg > 0)
-                sb.append(" x ").append(d.beratKg).append(" kg");
-            else if (!d.layanan.isPerKg() && d.jumlahItem > 0)
-                sb.append(" x ").append(d.jumlahItem).append(" item");
-            if ("EXPRESS".equals(d.kecepatan)) sb.append(" [Express]");
-            if (!d.addonNama.isBlank()) sb.append(" + ").append(d.addonNama);
-            sb.append("  → Rp").append(fmt(d.totalItem)).append("\n");
-            grandTotal += d.totalItem;
-        }
-        sb.append("Subtotal sementara: Rp").append(fmt(grandTotal)).append("\n");
+            sb.append("- ").append(a.getNamaLayanan())
+                    .append("  +Rp").append(String.format("%.0f", a.getHarga())).append("\n");
+        sb.append("\n");
         return sb.toString();
     }
 
-    private BotResponse tampilNota(ChatSession session) {
-        if (session.draftItems.isEmpty())
-            return txt("Tidak ada item dalam pesanan. Mulai dengan memilih layanan.");
+    private double getExpressSurchargeRate(Layanan l) {
+        if (l.isPerKg())
+            return infoService.getNilai("ADDON_CONFIG","express_surcharge_per_kg").map(Double::parseDouble).orElse(5000d);
+        return infoService.getNilai("ADDON_CONFIG","express_surcharge_flat").map(Double::parseDouble).orElse(15000d);
+    }
+
+    private double getExpressSurchargeTotal(ChatSession s) {
+        double rate = getExpressSurchargeRate(s.layanan);
+        return s.layanan.isPerKg() ? rate * Math.max(s.berat, 1) : rate;
+    }
+
+    private BotResponse tampilNota(ChatSession s) {
+        double subtotal   = s.layanan.isPerKg() ? s.layanan.getHarga() * s.berat : s.layanan.getHarga();
+        double express    = "EXPRESS".equals(s.kecepatan) ? getExpressSurchargeTotal(s) : 0;
+        double addonTotal = s.addonHarga.stream().mapToDouble(Double::doubleValue).sum();
+        double total      = subtotal + express + addonTotal;
 
         StringBuilder sb = new StringBuilder();
         sb.append("RINGKASAN PESANAN\n");
-        sb.append("========================\n");
-
-        double grandTotal = 0;
-        int no = 1;
-        for (ItemDraft d : session.draftItems) {
-            sb.append("ITEM ").append(no++).append(" — ").append(d.layanan.getNamaLayanan()).append("\n");
-
-            if (d.layanan.isPerKg() && d.beratKg > 0)
-                sb.append("  Rp").append(fmt(d.layanan.getHarga())).append("/kg x ")
-                        .append(d.beratKg).append(" kg = Rp").append(fmt(d.subtotalLayanan)).append("\n");
-            else if (!d.layanan.isPerKg() && d.jumlahItem > 0)
-                sb.append("  Rp").append(fmt(d.layanan.getHarga())).append("/item x ")
-                        .append(d.jumlahItem).append(" item = Rp").append(fmt(d.subtotalLayanan)).append("\n");
-
-            if (d.expressTotal > 0)
-                sb.append("  Express: +Rp").append(fmt(d.expressTotal)).append("\n");
-
-            if (!d.addonNama.isBlank())
-                for (String a : d.addonNama.split(","))
-                    sb.append("  Add-on ").append(a.trim()).append(": +Rp").append("(lihat rincian)\n");
-
-            if (d.addonTotal > 0)
-                sb.append("  Total add-on: Rp").append(fmt(d.addonTotal)).append("\n");
-
-            sb.append("  Subtotal item: Rp").append(fmt(d.totalItem)).append("\n");
-            sb.append("  Kecepatan: ").append(d.kecepatan).append("\n\n");
-            grandTotal += d.totalItem;
+        sb.append("------------------------\n");
+        sb.append("Layanan    : ").append(s.layanan.getNamaLayanan()).append("\n");
+        if (s.layanan.isPerKg()) sb.append("Berat      : ").append(s.berat).append(" kg\n");
+        sb.append("Kecepatan  : ").append(s.kecepatan).append("\n");
+        if (!s.addonNama.isEmpty()) {
+            sb.append("Tambahan   :\n");
+            for (int i = 0; i < s.addonNama.size(); i++)
+                sb.append("  - ").append(s.addonNama.get(i))
+                        .append(" (+Rp").append(String.format("%.0f", s.addonHarga.get(i))).append(")\n");
         }
-
-        sb.append("========================\n");
-        sb.append("TOTAL KESELURUHAN: Rp").append(fmt(grandTotal)).append("\n\n");
+        sb.append("------------------------\n");
+        sb.append("Layanan    : Rp").append(String.format("%.0f", subtotal));
+        if (s.layanan.isPerKg())
+            sb.append(" (Rp").append(String.format("%.0f", s.layanan.getHarga())).append("/kg x ").append(s.berat).append(" kg)");
+        sb.append("\n");
+        if (express > 0)    sb.append("Express    : +Rp").append(String.format("%.0f", express)).append("\n");
+        if (addonTotal > 0) sb.append("Tambahan   : +Rp").append(String.format("%.0f", addonTotal)).append("\n");
+        sb.append("------------------------\n");
+        sb.append("TOTAL      : Rp").append(String.format("%.0f", total)).append("\n\n");
         sb.append("Apakah pesanan sudah benar?\n");
-        sb.append("- Ketik ya    → konfirmasi & simpan\n");
-        sb.append("- Ketik batal → batalkan semua\n");
-        sb.append("- Ketik ubah  → ulangi dari awal");
+        sb.append("- Ketik ya untuk konfirmasi\n- Ketik batal untuk membatalkan\n- Ketik ubah untuk mengulang");
         return txt(sb.toString());
     }
 
-    private BotResponse simpanPesanan(ChatSession session) {
-        if (session.draftItems.isEmpty()) return txt("Tidak ada item untuk disimpan.");
+    private BotResponse simpanPesanan(ChatSession s) {
+        double subtotal   = s.layanan.isPerKg() ? s.layanan.getHarga() * s.berat : s.layanan.getHarga();
+        double express    = "EXPRESS".equals(s.kecepatan) ? getExpressSurchargeTotal(s) : 0;
+        double addonTotal = s.addonHarga.stream().mapToDouble(Double::doubleValue).sum();
+        double total      = subtotal + express + addonTotal;
+        String estimasi   = "EXPRESS".equals(s.kecepatan) ? "1 Hari Kerja" : s.layanan.getEstimasiWaktu();
+        String addonNamaStr = String.join(", ", s.addonNama);
 
-        double grandTotal = session.draftItems.stream().mapToDouble(d -> d.totalItem).sum();
-        String kode       = pesananService.simpanPesananDariChat(session.draftItems);
-        String estimasi;
-        if (session.draftItems.size() == 1) {
-            ItemDraft d = session.draftItems.get(0);
-            estimasi = "EXPRESS".equals(d.kecepatan) ? "1 Hari Kerja" : d.layanan.getEstimasiWaktu();
-        } else {
-            estimasi = "Sesuai layanan masing-masing item";
-        }
+        String kode = pesananService.simpanPesananDariChat(s.layanan, s.berat, total, s.kecepatan + (express > 0 ? " (+express Rp" + String.format("%.0f", express) + ")" : ""), addonNamaStr, subtotal, addonTotal);
 
         StringBuilder sb = new StringBuilder();
         sb.append("Pesanan berhasil disimpan!\n\n");
-        sb.append("========================\n");
+        sb.append("------------------------\n");
         sb.append("ID Pesanan   : ").append(kode).append("\n");
         sb.append("Tanggal      : ").append(LocalDate.now()).append("\n");
-        sb.append("Jumlah Item  : ").append(session.draftItems.size()).append(" layanan\n");
-        sb.append("========================\n\n");
-
-        int no = 1;
-        for (ItemDraft d : session.draftItems) {
-            sb.append("Item ").append(no++).append(": ").append(d.layanan.getNamaLayanan());
-            if (d.layanan.isPerKg() && d.beratKg > 0)
-                sb.append(" x ").append(d.beratKg).append(" kg");
-            else if (!d.layanan.isPerKg() && d.jumlahItem > 0)
-                sb.append(" x ").append(d.jumlahItem).append(" item");
-            if ("EXPRESS".equals(d.kecepatan)) sb.append(" [Express]");
-            if (!d.addonNama.isBlank()) sb.append("\n       Add-on: ").append(d.addonNama);
-            sb.append("  → Rp").append(fmt(d.totalItem)).append("\n");
-        }
-
-        sb.append("========================\n");
-        sb.append("TOTAL        : Rp").append(fmt(grandTotal)).append("\n\n");
+        sb.append("------------------------\n");
+        sb.append(s.layanan.getNamaLayanan());
+        if (s.layanan.isPerKg()) sb.append(" x ").append(s.berat).append(" kg");
+        sb.append("\n");
+        if (express > 0) sb.append("Express Service  +Rp").append(String.format("%.0f", express)).append("\n");
+        for (int i = 0; i < s.addonNama.size(); i++)
+            sb.append("- ").append(s.addonNama.get(i))
+                    .append("  +Rp").append(String.format("%.0f", s.addonHarga.get(i))).append("\n");
+        sb.append("------------------------\n");
+        sb.append("Subtotal Layanan : Rp").append(String.format("%.0f", subtotal)).append("\n");
+        if (express > 0)    sb.append("Express          : Rp").append(String.format("%.0f", express)).append("\n");
+        if (addonTotal > 0) sb.append("Subtotal Add-on  : Rp").append(String.format("%.0f", addonTotal)).append("\n");
+        sb.append("TOTAL            : Rp").append(String.format("%.0f", total)).append("\n\n");
         sb.append("Status       : DITERIMA\n");
         sb.append("Est. Selesai : ").append(estimasi).append("\n\n");
         sb.append("Alur: Diterima > Diproses > Selesai > Sudah Diambil\n\n");
         sb.append("Simpan kode ").append(kode).append(" untuk cek status.\n");
         sb.append("Terima kasih sudah menggunakan Washie!");
 
-        resetSemua(session);
+        reset(s);
         return new BotResponse(sb.toString(), ResponseType.NOTA, kode);
     }
 
-    private double hitungSubtotal(ChatSession s) {
-        return s.layanan.isPerKg()
-                ? s.layanan.getHarga() * s.beratKg
-                : s.layanan.getHarga() * s.jumlahItem;
-    }
-
-    private double getExpressRate(Layanan l) {
-        if (l.isPerKg())
-            return infoService.getNilai("ADDON_CONFIG","express_surcharge_per_kg")
-                    .map(Double::parseDouble).orElse(5000d);
-        return infoService.getNilai("ADDON_CONFIG","express_surcharge_flat")
-                .map(Double::parseDouble).orElse(15000d);
-    }
-
-    private double hitungExpress(ChatSession s) {
-        double rate = getExpressRate(s.layanan);
-        if (s.layanan.isPerKg()) {
-            double kg = s.beratKg > 0 ? s.beratKg : 1;
-            return rate * kg;
-        }
-        return rate;
-    }
-
-    private boolean addonDipilih(String namaAddon, String userInput) {
-        if (userInput.contains(namaAddon)) return true;
-        if (namaAddon.equals("extra softener"))
-            return (has(userInput,"extra softener") || has(userInput,"softener","pelembut")) &&
-                    !has(userInput,"anti","antiseptik","septik","kuman");
-        if (namaAddon.equals("anti-septik") || namaAddon.equals("anti septik"))
-            return has(userInput,"anti-septik","anti septik","antiseptik","kuman","antibakteri") &&
-                    !has(userInput,"softener","pelembut");
-        if (namaAddon.contains("softener") && namaAddon.contains("anti"))
-            return (has(userInput,"softener") && has(userInput,"anti","antiseptik","septik")) ||
-                    has(userInput,"softener anti","softener+anti");
-        String[] words = namaAddon.split("[\\s\\-+/]+");
-        long required = Arrays.stream(words).filter(w -> w.length() >= 4).count();
-        if (required == 0) return false;
-        long matched  = Arrays.stream(words).filter(w -> w.length() >= 4 && userInput.contains(w)).count();
-        return matched == required;
-    }
-
-    private BotResponse handleInfo(String tipe, String namaLayanan) {
-        Optional<Layanan> opt = cariLayananDb(namaLayanan);
-        if (opt.isEmpty()) return txt("Maaf, informasi layanan " + namaLayanan + " belum tersedia.");
-        Layanan l     = opt.get();
-        String satuan = l.isPerKg() ? "/kg" : "/item";
-        double expRate = getExpressRate(l);
-
-        return switch (tipe) {
-            case "HARGA" -> {
-                StringBuilder sb = new StringBuilder();
-                sb.append("Harga layanan ").append(l.getNamaLayanan()).append(":\n\n");
-                sb.append("- Standar : Rp").append(fmt(l.getHarga())).append(satuan)
-                        .append("  (estimasi ").append(l.getEstimasiWaktu()).append(")\n");
-                if (l.isBisaExpress())
-                    sb.append("- Express : +Rp").append(fmt(expRate)).append(satuan)
-                            .append("  (1 Hari Kerja)\n");
-                else sb.append("- Express : tidak tersedia\n");
-                sb.append("\nContoh: 3 ").append(l.isPerKg() ? "kg" : "item")
-                        .append(" x Rp").append(fmt(l.getHarga())).append(" = Rp").append(fmt(l.getHarga() * 3)).append("\n\n");
-                sb.append("Mau pesan? Ketik: ").append(l.getNamaLayanan().toLowerCase())
-                        .append(l.isPerKg() ? " 2 kg" : " 1 item");
-                yield txt(sb.toString());
-            }
+    // =========================================================================
+    //  INFO
+    // =========================================================================
+    private BotResponse handleInfo(String type, String term) {
+        Optional<Layanan> opt = cariLayananDb(term);
+        if (opt.isEmpty()) return txt("Maaf, informasi layanan " + term + " belum tersedia.");
+        Layanan l = opt.get();
+        String satuan  = l.isPerKg() ? "/kg" : "/item";
+        double expRate = getExpressSurchargeRate(l);
+        return switch (type) {
+            case "HARGA" -> txt(
+                    "Harga layanan " + l.getNamaLayanan() + ":\n\n" +
+                            "- Standar : Rp" + String.format("%.0f", l.getHarga()) + satuan + "  (" + l.getEstimasiWaktu() + ")\n" +
+                            (l.isBisaExpress()
+                                    ? "- Express : Rp" + String.format("%.0f", l.getHarga() + expRate) + satuan + "  (1 Hari)  (+Rp" + String.format("%.0f", expRate) + satuan + ")\n"
+                                    : "- Express : tidak tersedia\n") +
+                            "\nMau pesan? Ketik: " + l.getNamaLayanan().toLowerCase() + (l.isPerKg() ? " 2 kg" : "")
+            );
             case "ESTIMASI" -> txt(
                     "Estimasi waktu " + l.getNamaLayanan() + ":\n\n" +
                             "- Standar : " + l.getEstimasiWaktu() + "\n" +
-                            "- Express : " + (l.isBisaExpress()
-                            ? "1 Hari Kerja (+Rp" + fmt(expRate) + satuan + ")"
-                            : "tidak tersedia") + "\n\n" +
+                            "- Express : " + (l.isBisaExpress() ? "1 Hari Kerja" : "tidak tersedia") + "\n\n" +
+                            "Harga: Rp" + String.format("%.0f", l.getHarga()) + satuan + "\n\n" +
                             "Estimasi dihitung sejak pakaian diterima.\n" +
-                            "Harga: Rp" + fmt(l.getHarga()) + satuan + "\n\n" +
-                            "Mau pesan? Ketik: " + l.getNamaLayanan().toLowerCase() +
-                            (l.isPerKg() ? " 2 kg" : " 1 item")
+                            "Mau pesan? Ketik: " + l.getNamaLayanan().toLowerCase() + (l.isPerKg() ? " 2 kg" : "")
             );
             case "DESKRIPSI" -> {
-                Map<String,String> desk = new HashMap<>();
-                desk.put("Dry Cleaning","Pencucian dengan cairan kimia khusus (bukan air). Cocok untuk jas, kebaya, gaun pengantin, wol, sutra.");
-                desk.put("Cuci Kering","Cuci + pengeringan mesin tanpa setrika. Untuk pakaian kasual sehari-hari.");
-                desk.put("Cuci + Setrika","Cuci, keringkan, lalu setrika rapi. Untuk kemeja dan pakaian formal.");
-                desk.put("Setrika Saja","Penyetrikaan untuk pakaian yang sudah bersih.");
-                desk.put("Cuci Bedcover","Pencucian bedcover dengan mesin besar. Harga per item.");
-                desk.put("Cuci Boneka","Pencucian lembut stuffed toy. Harga per item.");
-                desk.put("Cuci Karpet","Pencucian karpet dengan mesin khusus. Harga per m².");
-                desk.put("Cuci Selimut","Pencucian selimut tebal/tipis. Harga per item.");
-                desk.put("Cuci Handuk","Pencucian handuk menjaga kelembutan bahan.");
-                desk.put("Cuci Gorden & Vitrase","Pencucian tirai/gorden/vitrase hati-hati. Harga per item.");
-                desk.put("Cuci Sprei & Sarung Bantal","Pencucian sprei + sarung bantal. Harga per set.");
+                Map<String,String> desk = new HashMap<>(Map.of(
+                        "Dry Cleaning",
+                        "Pencucian menggunakan cairan kimia khusus, bukan air. Cocok untuk jas, kebaya, " +
+                                "gaun pengantin, wol, atau sutra. Aman untuk pakaian yang tidak boleh dicuci air biasa.",
+                        "Cuci Kering",
+                        "Cuci + pengeringan mesin tanpa setrika. Cocok untuk pakaian kasual sehari-hari " +
+                                "yang tidak butuh kerapian lipatan.",
+                        "Cuci + Setrika",
+                        "Layanan lengkap: cuci, keringkan, lalu setrika hingga rapi. " +
+                                "Cocok untuk kemeja, baju kerja, dan pakaian formal.",
+                        "Setrika Saja",
+                        "Layanan penyetrikaan untuk pakaian yang sudah bersih. " +
+                                "Cocok jika pakaian hanya perlu dirapikan tanpa perlu dicuci.",
+                        "Cuci Boneka",
+                        "Pencucian lembut khusus stuffed toy / boneka berbahan kain. " +
+                                "Dikerjakan dengan metode aman agar tidak merusak bentuk. Harga per item.",
+                        "Cuci Karpet",
+                        "Pencucian karpet menggunakan mesin khusus. " +
+                                "Tersedia untuk berbagai jenis dan ketebalan karpet. Harga per meter persegi.",
+                        "Cuci Bedcover",
+                        "Pencucian bedcover / selimut besar. Dikerjakan dengan mesin berkapasitas besar. " +
+                                "Harga per item.",
+                        "Cuci Selimut",
+                        "Pencucian selimut tebal maupun tipis. " +
+                                "Harga per item.",
+                        "Cuci Handuk",
+                        "Pencucian khusus kain berbahan terry/handuk. " +
+                                "Dijaga kelembutannya agar tidak rusak.",
+                        "Cuci Gorden & Vitrase",
+                        "Pencucian tirai, gorden, dan vitrase. Dikerjakan dengan hati-hati " +
+                                "agar tidak merusak bahan tipis. Harga per item."
+                ));
                 yield txt(l.getNamaLayanan() + "\n\n" +
-                        desk.getOrDefault(l.getNamaLayanan(),"Layanan pencucian profesional.") +
-                        "\n\nHarga    : Rp" + fmt(l.getHarga()) + satuan +
+                        desk.getOrDefault(l.getNamaLayanan(), "Layanan pencucian profesional dari Washie Laundry.") +
+                        "\n\nHarga    : Rp" + String.format("%.0f", l.getHarga()) + satuan +
                         "\nEstimasi : " + l.getEstimasiWaktu() +
-                        "\nExpress  : " + (l.isBisaExpress() ? "tersedia (+Rp" + fmt(expRate) + satuan + ")" : "tidak tersedia") +
-                        "\n\nMau pesan? Ketik: " + l.getNamaLayanan().toLowerCase() +
-                        (l.isPerKg() ? " 2 kg" : " 1 item"));
+                        (l.isBisaExpress() ? "\nExpress  : tersedia (1 Hari Kerja)" : "\nExpress  : tidak tersedia") +
+                        "\n\nMau pesan? Ketik: " + l.getNamaLayanan().toLowerCase() + (l.isPerKg() ? " 2 kg" : ""));
             }
-            default -> respFallback();
+            default -> fallback();
         };
     }
 
-    private BotResponse respTanyaLayanan() {
+    private BotResponse tanyaLayanan() {
         List<Layanan> aktif = layananService.getLayananAktif();
         if (aktif.isEmpty()) return txt("Maaf, belum ada layanan aktif. Hubungi kami via WhatsApp.");
         StringBuilder sb = new StringBuilder("Mau laundry apa?\n\n");
@@ -587,19 +512,17 @@ public class ChatEngine {
         List<Layanan> perItem = aktif.stream().filter(l -> !l.isPerKg()).collect(Collectors.toList());
         if (!perKg.isEmpty()) {
             sb.append("Per Kilogram:\n");
-            for (Layanan l : perKg)
-                sb.append(String.format("- %-28s Rp%s/kg\n", l.getNamaLayanan(), fmt(l.getHarga())));
+            for (Layanan l : perKg) sb.append(String.format("- %-28s Rp%.0f/kg\n", l.getNamaLayanan(), l.getHarga()));
         }
         if (!perItem.isEmpty()) {
             sb.append("\nPer Item:\n");
-            for (Layanan l : perItem)
-                sb.append(String.format("- %-28s Rp%s/item\n", l.getNamaLayanan(), fmt(l.getHarga())));
+            for (Layanan l : perItem) sb.append(String.format("- %-28s Rp%.0f/item\n", l.getNamaLayanan(), l.getHarga()));
         }
-        sb.append("\nKetik nama layanan, misal:\n  cuci setrika 2 kg\n  cuci bedcover 2 item");
+        sb.append("\nKetik nama layanan, misal: cuci setrika 2 kg");
         return txt(sb.toString());
     }
 
-    private BotResponse respDaftarLayanan() { return respTanyaLayanan(); }
+    private BotResponse daftarLayanan() { return tanyaLayanan(); }
 
     private BotResponse cekStatus(String kode) {
         return pesananService.getByKode(kode).map(p -> {
@@ -608,78 +531,86 @@ public class ChatEngine {
                 case SELESAI  -> "Selesai - siap diambil!";
                 case DIAMBIL  -> "Sudah Diambil";
             };
-            String items = p.getItems().size() > 1
-                    ? "\nJumlah Item: " + p.getItems().size() + " layanan" : "";
             return txt("Status Pesanan " + p.getKodePesanan() + ":\n\n" +
                     "Nama    : " + p.getUser().getNamaLengkap() + "\n" +
-                    "Layanan : " + p.getLayanan().getNamaLayanan() +
-                    (p.getItems().size() > 1 ? " + " + (p.getItems().size()-1) + " lainnya" : "") + "\n" +
-                    "Masuk   : " + p.getTanggalMasuk() + items + "\n" +
-                    "Total   : Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\n" +
+                    "Layanan : " + p.getLayanan().getNamaLayanan() + "\n" +
+                    "Masuk   : " + p.getTanggalMasuk() + "\n" +
                     "Status  : " + st);
         }).orElse(txt("Pesanan " + kode + " tidak ditemukan.\nPastikan kode benar, contoh: WS-001."));
     }
 
-    private BotResponse respJam() {
+    private BotResponse jamOps() {
         String sf = infoService.getNilai("JAM_OPERASIONAL","senin_jumat").orElse("08.00-21.00");
         String sm = infoService.getNilai("JAM_OPERASIONAL","sabtu_minggu").orElse("09.00-19.00");
         String hl = infoService.getNilai("JAM_OPERASIONAL","hari_libur").orElse("Tutup");
-        return txt("Jam Operasional Washie:\n\nSenin-Jumat  : " + sf +
-                "\nSabtu-Minggu : " + sm + "\nHari Libur   : " + hl);
+        return txt("Jam Operasional Washie:\n\nSenin-Jumat  : " + sf + "\nSabtu-Minggu : " + sm + "\nHari Libur   : " + hl);
     }
 
-    private BotResponse respLokasi() {
+    private BotResponse lokasi() {
         String al = infoService.getNilai("LOKASI_KONTAK","alamat").orElse("-");
         String wa = infoService.getNilai("LOKASI_KONTAK","whatsapp").orElse("-");
         String ig = infoService.getNilai("LOKASI_KONTAK","instagram").orElse("-");
-        return txt("Lokasi & Kontak Washie:\n\nAlamat    : " + al +
-                "\nWhatsApp  : " + wa + "\nInstagram : " + ig);
-    }
-
-    private BotResponse respPengumuman() {
-        List<InfoEntity> list = infoService.getPengumuman();
-        if (list.isEmpty())
-            return txt("Saat ini belum ada pengumuman dari Washie.\nHubungi WhatsApp kami untuk info lebih lanjut.");
-        StringBuilder sb = new StringBuilder("Informasi terbaru dari Washie:\n\n");
-        for (InfoEntity p : list) {
-            sb.append("[").append(p.getKunci()).append("]\n").append(p.getNilai()).append("\n\n");
-        }
-        return txt(sb.toString().trim());
+        return txt("Lokasi & Kontak Washie:\n\nAlamat    : " + al + "\nWhatsApp  : " + wa + "\nInstagram : " + ig);
     }
 
     private BotResponse salam() {
-        StringBuilder sb = new StringBuilder("Halo! Selamat datang di Washie Laundry.\n\n");
-        List<InfoEntity> pengumuman = infoService.getPengumuman();
+        StringBuilder sb = new StringBuilder();
+        sb.append("Halo! Selamat datang di Washie Laundry.\n\n");
+
+        // Fix #2: tampilkan pengumuman aktif dari admin jika ada
+        List<com.washie.model.InfoEntity> pengumuman = infoService.getPengumuman();
         if (!pengumuman.isEmpty()) {
             sb.append("--- Info dari Washie ---\n");
-            for (InfoEntity p : pengumuman)
-                sb.append("[").append(p.getKunci()).append("]\n").append(p.getNilai()).append("\n\n");
+            for (com.washie.model.InfoEntity p : pengumuman) {
+                sb.append("[").append(p.getKunci()).append("]\n");
+                sb.append(p.getNilai()).append("\n\n");
+            }
             sb.append("------------------------\n\n");
         }
+
         sb.append("Saya bisa membantu:\n");
-        sb.append("- Pesan layanan  : cuci setrika 2 kg  /  cuci bedcover 1 item\n");
-        sb.append("- Pesan multi    : bisa tambah beberapa layanan dalam 1 nota\n");
-        sb.append("- Cek harga      : berapa harga cuci setrika\n");
-        sb.append("- Estimasi       : berapa lama cuci kering\n");
-        sb.append("- Info layanan   : apa itu dry cleaning\n");
-        sb.append("- Status pesanan : cek WS-001\n");
-        sb.append("- Jam buka       : jam operasional\n");
-        sb.append("- Lokasi         : lokasi\n\n");
+        sb.append("- Pesan layanan      : ketik misal cuci baju 2 kg\n");
+        sb.append("- Cek harga          : ketik misal berapa harga cuci setrika\n");
+        sb.append("- Estimasi layanan   : ketik misal berapa lama cuci kering\n");
+        sb.append("- Info layanan       : ketik misal apa itu dry cleaning\n");
+        sb.append("- Status pesanan     : ketik kode misal cek WS-001\n");
+        sb.append("- Jam buka           : ketik jam operasional\n");
+        sb.append("- Lokasi             : ketik lokasi\n");
+        sb.append("- Pengumuman         : ketik info terbaru\n\n");
         sb.append("Ada yang bisa saya bantu?");
         return txt(sb.toString());
     }
 
-    private BotResponse respFallback() {
-        return txt("Maaf, saya belum mengerti.\n\n" +
-                "Coba ketik:\n" +
-                "- cuci setrika 2 kg       : pesan per kg\n" +
-                "- cuci bedcover 2 item    : pesan per item\n" +
-                "- berapa harga cuci kering: cek harga\n" +
-                "- berapa lama cuci setrika: estimasi waktu\n" +
-                "- daftar layanan          : semua layanan\n" +
-                "- cek WS-001              : status pesanan");
+    /** Fix #2: user bisa tanya info/pengumuman kapan saja */
+    private BotResponse getPengumuman() {
+        List<com.washie.model.InfoEntity> list = infoService.getPengumuman();
+        if (list.isEmpty())
+            return txt("Saat ini belum ada informasi atau pengumuman dari Washie.\nUntuk info lebih lanjut hubungi kami via WhatsApp.");
+        StringBuilder sb = new StringBuilder("Informasi terbaru dari Washie:\n\n");
+        for (com.washie.model.InfoEntity p : list) {
+            sb.append("[").append(p.getKunci()).append("]\n");
+            sb.append(p.getNilai()).append("\n\n");
+        }
+        return txt(sb.toString().trim());
     }
 
+    private BotResponse fallback() {
+        return txt("Maaf, saya belum mengerti maksud Anda.\n\n" +
+                "Coba ketik:\n" +
+                "- cuci baju 2 kg               : pesan laundry\n" +
+                "- berapa harga cuci kering      : cek harga\n" +
+                "- berapa lama cuci setrika      : estimasi waktu\n" +
+                "- apa itu dry cleaning          : info layanan\n" +
+                "- daftar layanan               : lihat semua layanan\n" +
+                "- cek WS-001                   : status pesanan\n" +
+                "- lokasi                       : alamat & kontak\n" +
+                "- jam operasional              : jam buka\n" +
+                "- info terbaru                 : pengumuman dari admin");
+    }
+
+    // =========================================================================
+    //  UTILS
+    // =========================================================================
     private Optional<Layanan> cariLayananDb(String term) {
         List<Layanan> aktif = layananService.getLayananAktif();
         String kw = term.toLowerCase();
@@ -692,13 +623,11 @@ public class ChatEngine {
         return Optional.empty();
     }
 
-    private double extractAngka(String input) {
-        Matcher m = ANGKA_PAT.matcher(input);
+    private double extractBerat(String input) {
+        Matcher m = BERAT_PAT.matcher(input);
         while (m.find()) {
-            try {
-                double v = Double.parseDouble(m.group(1).replace(",","."));
-                if (v > 0 && v < 10000) return v;
-            } catch (NumberFormatException ignored) {}
+            try { double v = Double.parseDouble(m.group(1).replace(",",".")); if (v>0&&v<1000) return v; }
+            catch (NumberFormatException ignored) {}
         }
         return 0;
     }
@@ -713,28 +642,10 @@ public class ChatEngine {
         return false;
     }
 
-    private boolean isBatal(String lower) {
-        return has(lower,"batal","cancel","tidak jadi","ga jadi","gak jadi");
-    }
-
-    private String fmt(double v) {
-        return v == Math.floor(v) ? String.format("%.0f", v) : String.format("%.1f", v);
-    }
-
-    private void resetItem(ChatSession s) {
-        s.layanan      = null;
-        s.beratKg      = 0;
-        s.jumlahItem   = 0;
-        s.kecepatan    = null;
-        s.expressTotal = 0;
-        s.addonNama.clear();
-        s.addonHarga.clear();
-    }
-
-    private void resetSemua(ChatSession s) {
-        resetItem(s);
-        s.draftItems.clear();
-        s.state = ConvState.IDLE;
+    private void reset(ChatSession s) {
+        s.state=ConvState.IDLE; s.layanan=null; s.berat=0;
+        s.kecepatan=null; s.expressHarga=0;
+        s.addonNama.clear(); s.addonHarga.clear();
     }
 
     private static BotResponse txt(String msg) { return new BotResponse(msg, ResponseType.TEXT, null); }
@@ -748,3 +659,4 @@ public class ChatEngine {
         public ResponseType getType() { return type; }
         public Object getData() { return data; }
     }
+}
