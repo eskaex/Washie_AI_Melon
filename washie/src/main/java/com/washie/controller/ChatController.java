@@ -1,4 +1,4 @@
-package controller;
+package com.washie.controller;
 
 import com.washie.engine.ChatEngine;
 import com.washie.engine.ChatEngine.BotResponse;

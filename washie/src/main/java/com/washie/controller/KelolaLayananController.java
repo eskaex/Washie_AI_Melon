@@ -1,4 +1,4 @@
-package controller;
+package com.washie.controller;
 
 import com.washie.model.Layanan;
 import com.washie.service.LayananService;
