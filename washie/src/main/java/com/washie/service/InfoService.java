@@ -34,7 +34,19 @@ public class InfoService {
         return infoRepository.save(entity);
     }
 
+    public InfoEntity save(InfoEntity entity) {
+        return infoRepository.save(entity);
+    }
+
+    public void hapus(Long id) {
+        infoRepository.deleteById(id);
+    }
+
     public List<InfoEntity> getAll() {
         return infoRepository.findAll();
+    }
+
+    public List<InfoEntity> getPengumuman() {
+        return infoRepository.findByKategori("INFORMASI");
     }
 }
