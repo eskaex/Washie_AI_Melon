@@ -1,9 +1,11 @@
 package com.washie.engine;
 
+import com.washie.model.InfoEntity;
 import com.washie.model.Layanan;
 import com.washie.service.InfoService;
 import com.washie.service.LayananService;
 import com.washie.service.PesananService;
+import com.washie.service.PesananService.ItemDraft;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -22,75 +24,108 @@ public class ChatEngine {
         this.layananService = l; this.pesananService = p; this.infoService = i;
     }
 
+    // ========================================================================
+    // VALIDASI
+    // ========================================================================
+    private static final double MIN_BERAT_KG = 1.0;
+    private static final double MAX_BERAT_KG = 25.0;
+    private static final int    MIN_ITEM      = 1;
+    private static final int    MAX_ITEM      = 20;
+
     // =========================================================================
     //  SESSION
     // =========================================================================
     public static class ChatSession {
-        public ConvState    state        = ConvState.IDLE;
+        public ConvState state = ConvState.IDLE;
+
+        // Mode interaktif 1 item
         public Layanan      layanan;
-        public double       berat        = 0;
+        public double       beratKg      = 0;
+        public int          jumlahItem   = 0;
         public String       kecepatan;
-        public double       expressHarga = 0;
+        public double       expressTotal = 0;
         public List<String> addonNama    = new ArrayList<>();
         public List<Double> addonHarga   = new ArrayList<>();
+
+        // Draft items siap simpan
+        public List<ItemDraft> draftItems = new ArrayList<>();
+
+        // Mode B/C: item sudah di-parse kuantitas, menunggu kecepatan+addon
+        public List<ParsedOrder> pendingSpeedAddon = new ArrayList<>();
+
+        // Clarification untuk item yang kurang info kuantitas
+        public List<ParsedOrder> pendingClarification = new ArrayList<>();
+        public int clarificationIndex = 0;
+
+        public Set<String> downgradedLayanan = new HashSet<>();
     }
 
-    public enum ConvState { IDLE, TANYA_BERAT, PILIH_KECEPATAN, PILIH_ADDON, KONFIRMASI }
+    public enum ConvState {
+        IDLE,
+        TANYA_BERAT,
+        TANYA_JUMLAH,
+        PILIH_KECEPATAN,
+        PILIH_ADDON,
+        TANYA_TAMBAH_ITEM,
+        KONFIRMASI,
+        CLARIFICATION,
+        TANYA_SPEED_ADDON_GLOBAL, // Mode B: tanya kecepatan+addon untuk semua item
+        TANYA_DOWNGRADE
+    }
 
     // =========================================================================
-    //  ORDER KEYWORD MAP
+    //  PARSED ORDER
     // =========================================================================
-    private static final List<String[]> KEYWORD_MAP = new ArrayList<>();
+    public static class ParsedOrder {
+        public String  rawSegment;
+        public Layanan layanan;
+        public double  beratKg    = 0;
+        public int     jumlahItem = 0;
+        public String  kecepatan;          // null = belum ditentukan
+        public List<String> addonName  = new ArrayList<>();
+        public List<Double> addonHarga = new ArrayList<>();
+        public boolean tanpaAddon = false;
+        public boolean semuaAddon = false;
+        public String  errorMsg;
+        public boolean isDowngraded = false;
+
+        public boolean kuantitasLengkap() {
+            if (layanan == null) return false;
+            return layanan.isPerKg() ? beratKg > 0 : jumlahItem > 0;
+        }
+
+        public boolean isComplete() {
+            return kuantitasLengkap() && kecepatan != null;
+        }
+    }
+
+    // =========================================================================
+    //  KEYWORD PATTERNS
+    // =========================================================================
+    private static final List<String[]> LAYANAN_PAT = new ArrayList<>();
     static {
-        KEYWORD_MAP.add(new String[]{"cuci\\s*(\\+\\s*)?setrika|wash.*iron",       "Cuci + Setrika"});
-        KEYWORD_MAP.add(new String[]{"cuci\\s*kering(?!\\s*setrika)|wash\\s*only", "Cuci Kering"});
-        KEYWORD_MAP.add(new String[]{"setrika\\s*(saja|aja|only)|ironing",          "Setrika Saja"});
-        KEYWORD_MAP.add(new String[]{"dry\\s*clean",                                "Dry Cleaning"});
-        KEYWORD_MAP.add(new String[]{"bedcover|bed\\s*cover",                       "Cuci Bedcover"});
-        KEYWORD_MAP.add(new String[]{"sprei|sarung\\s*bantal",                      "Cuci Sprei"});
-        KEYWORD_MAP.add(new String[]{"selimut|blanket",                             "Cuci Selimut"});
-        KEYWORD_MAP.add(new String[]{"handuk|towel",                                "Cuci Handuk"});
-        KEYWORD_MAP.add(new String[]{"gorden|gordyn|vitrase|tirai",                 "Cuci Gorden"});
-        KEYWORD_MAP.add(new String[]{"karpet|carpet",                               "Cuci Karpet"});
-        KEYWORD_MAP.add(new String[]{"boneka|stuffed|teddy",                        "Cuci Boneka"});
+        LAYANAN_PAT.add(new String[]{"cuci\\s*(\\+\\s*)?setrika|wash.*iron",             "Cuci + Setrika"});
+        LAYANAN_PAT.add(new String[]{"cuci\\s*kering(?!\\s*setrika)|wash\\s*only",       "Cuci Kering"});
+        LAYANAN_PAT.add(new String[]{"setrika\\s*(saja|aja|only|doank)|ironing\\s*only", "Setrika Saja"});
+        LAYANAN_PAT.add(new String[]{"dry\\s*clean(?:ing)?",                             "Dry Cleaning"});
+        LAYANAN_PAT.add(new String[]{"bedcover|bed\\s*cover",                            "Cuci Bedcover"});
+        LAYANAN_PAT.add(new String[]{"sprei|sarung\\s*bantal",                           "Cuci Sprei"});
+        LAYANAN_PAT.add(new String[]{"selimut|blanket",                                  "Cuci Selimut"});
+        LAYANAN_PAT.add(new String[]{"handuk|towel",                                     "Cuci Handuk"});
+        LAYANAN_PAT.add(new String[]{"gorden|gordyn|vitrase|tirai",                      "Cuci Gorden"});
+        LAYANAN_PAT.add(new String[]{"karpet|carpet",                                    "Cuci Karpet"});
+        LAYANAN_PAT.add(new String[]{"boneka|stuffed|teddy",                             "Cuci Boneka"});
     }
 
     private static final List<String[]> INFO_MAP = new ArrayList<>();
     static {
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*cuci\\s*kering",    "HARGA","Cuci Kering"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*cuci.*setrika",     "HARGA","Cuci + Setrika"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*setrika\\s*saja",   "HARGA","Setrika Saja"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*dry\\s*clean",      "HARGA","Dry Cleaning"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*bedcover",          "HARGA","Cuci Bedcover"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*boneka",            "HARGA","Cuci Boneka"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*karpet",            "HARGA","Cuci Karpet"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*selimut",           "HARGA","Cuci Selimut"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*sprei",             "HARGA","Cuci Sprei"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*handuk",            "HARGA","Cuci Handuk"});
-        INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*gorden",            "HARGA","Cuci Gorden"});
-        // Estimasi — semua layanan
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*cuci\\s*kering",  "ESTIMASI","Cuci Kering"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*cuci.*setrika",   "ESTIMASI","Cuci + Setrika"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*setrika\\s*saja", "ESTIMASI","Setrika Saja"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*dry\\s*clean",    "ESTIMASI","Dry Cleaning"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*bedcover",        "ESTIMASI","Cuci Bedcover"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*selimut",         "ESTIMASI","Cuci Selimut"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*sprei",           "ESTIMASI","Cuci Sprei"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*handuk",          "ESTIMASI","Cuci Handuk"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*gorden",          "ESTIMASI","Cuci Gorden"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*karpet",          "ESTIMASI","Cuci Karpet"});
-        INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*boneka",          "ESTIMASI","Cuci Boneka"});
-        // Deskripsi — semua layanan
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*dry\\s*clean",   "DESKRIPSI","Dry Cleaning"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*cuci\\s*kering", "DESKRIPSI","Cuci Kering"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*cuci.*setrika",  "DESKRIPSI","Cuci + Setrika"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*setrika\\s*saja","DESKRIPSI","Setrika Saja"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*bedcover",       "DESKRIPSI","Cuci Bedcover"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*boneka",         "DESKRIPSI","Cuci Boneka"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*karpet",         "DESKRIPSI","Cuci Karpet"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*selimut",        "DESKRIPSI","Cuci Selimut"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*gorden",         "DESKRIPSI","Cuci Gorden"});
-        INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*handuk",         "DESKRIPSI","Cuci Handuk"});
+        String[] names = {"Cuci + Setrika","Cuci Kering","Setrika Saja","Dry Cleaning","Cuci Bedcover","Cuci Sprei","Cuci Selimut","Cuci Handuk","Cuci Gorden","Cuci Karpet","Cuci Boneka"};
+        String[] regex = {"cuci.*setrika","cuci\\s*kering","setrika\\s*saja","dry\\s*clean","bedcover","sprei","selimut","handuk","gorden","karpet","boneka"};
+        for (int i = 0; i < names.length; i++) {
+            INFO_MAP.add(new String[]{"(harga|biaya|tarif|berapa).*(" + regex[i] + ")",           "HARGA",    names[i]});
+            INFO_MAP.add(new String[]{"(lama|estimasi|kapan|selesai|waktu).*(" + regex[i] + ")",  "ESTIMASI", names[i]});
+            INFO_MAP.add(new String[]{"(apa|jelaskan|info|maksud|ceritakan).*(" + regex[i] + ")", "DESKRIPSI",names[i]});
+        }
     }
 
     // LOKASI dicek sebelum order agar "laundry di mana" tidak salah routing

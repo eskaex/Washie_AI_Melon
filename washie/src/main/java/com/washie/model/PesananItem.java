@@ -3,10 +3,6 @@ package com.washie.model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-/**
- * Satu baris item dalam pesanan.
- * Satu pesanan bisa punya banyak PesananItem (one-to-many).
- */
 @Entity
 @Table(name = "pesanan_item")
 public class PesananItem {
@@ -90,7 +86,6 @@ public class PesananItem {
     public LocalDateTime getCreatedAt()        { return createdAt; }
     public void setCreatedAt(LocalDateTime v)  { this.createdAt = v; }
 
-    /** Helper: deskripsi singkat untuk tampil di nota */
     public String getRingkasan() {
         StringBuilder sb = new StringBuilder(layanan.getNamaLayanan());
         if (beratKg != null && beratKg > 0)
