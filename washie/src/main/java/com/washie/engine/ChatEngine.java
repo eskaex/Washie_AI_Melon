@@ -364,6 +364,44 @@ public class ChatEngine {
         return response;
     }
 
+    private BotResponse masukModeBGlobal(List<ParsedOrder> orders, String errMsg, ChatSession session) {
+        session.pendingSpeedAddon = orders;
+        session.state             = ConvState.TANYA_SPEED_ADDON_GLOBAL;
+
+        StringBuilder sb = new StringBuilder();
+        if (!errMsg.isBlank()) sb.append(errMsg);
+
+        sb.append("Oke! Saya catat pesanan kamu:\n\n");
+        int no = 1;
+        for (ParsedOrder o : orders) {
+            sb.append(no++).append(". ").append(o.layanan.getNamaLayanan());
+            if (o.layanan.isPerKg() && o.beratKg > 0)
+                sb.append(" — ").append(o.beratKg).append(" kg");
+            else if (!o.layanan.isPerKg() && o.jumlahItem > 0)
+                sb.append(" — ").append(o.jumlahItem).append(" item");
+            sb.append("\n");
+        }
+        sb.append("\n");
+
+        // Tampilkan opsi kecepatan dan addon
+        sb.append("Sekarang tentukan kecepatan dan add-on.\n\n");
+        sb.append("Opsi 1 — Sama untuk semua:\n");
+        sb.append("  \"semua express, pewangi premium\"\n");
+        sb.append("  \"semua standar, tanpa add on\"\n");
+        sb.append("  \"semua standar, semua add on\"\n\n");
+        sb.append("Opsi 2 — Berbeda per layanan:\n");
+        sb.append("  \"[nama layanan] express [addon], [nama layanan] standar tanpa addon\"\n");
+        sb.append("  Contoh: \"setrika express pewangi, kering standar tanpa addon, bedcover standar semua addon\"\n\n");
+
+        if (!layananService.getAddonAktif().isEmpty()) {
+            sb.append("Add-on tersedia:\n").append(buatOpsiAddon()).append("\n");
+        }
+        sb.append("Ketik pilihan kamu:");
+        return txt(sb.toString());
+    }
+
+
+
     // =========================================================================
     //  TANYA BERAT
     // =========================================================================
