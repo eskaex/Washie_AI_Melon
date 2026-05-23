@@ -53,10 +53,6 @@ public class PesananService {
         return pesananRepository.countByStatus(status);
     }
 
-    /**
-     * Simpan pesanan baru dari chatbot.
-     * Menerima daftar ItemDraft (satu atau lebih item).
-     */
     public String simpanPesananDariChat(List<ItemDraft> drafts) {
         User currentUser = sessionManager.getCurrentUser();
         if (currentUser == null) throw new IllegalStateException("Tidak ada user yang login.");
