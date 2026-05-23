@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -18,12 +19,20 @@ public class LayananService {
         this.layananRepository = layananRepository;
     }
 
-    public List<Layanan> getAllLayanan() {
+    public List<Layanan> getAll() {
         return layananRepository.findAll();
     }
 
     public List<Layanan> getLayananAktif() {
-        return layananRepository.findByStatus(Layanan.Status.AKTIF);
+        return layananRepository.findByStatus(com.washie.model.Layanan.Status.AKTIF)
+                .stream().filter(l -> l.getTipe() == com.washie.model.Layanan.Tipe.LAYANAN)
+                .collect(Collectors.toList());
+    }
+
+    public List<Layanan> getAddonAktif() {
+        return layananRepository.findByStatus(Layanan.Status.AKTIF)
+                .stream().filter(l -> l.getTipe() == Layanan.Tipe.ADDON)
+                .collect(Collectors.toList());
     }
 
     public Optional<Layanan> getById(Long id) {
@@ -34,16 +43,26 @@ public class LayananService {
         return layananRepository.save(layanan);
     }
 
-    public Layanan tambahLayanan(String nama, Double harga, String estimasi) {
-        Layanan layanan = new Layanan(nama, harga, estimasi);
-        return layananRepository.save(layanan);
+    public Optional<Layanan> cariSatuLayanan(String term) {
+        List<Layanan> aktif = getLayananAktif();
+        String kw = term.toLowerCase();
+        for (Layanan l : aktif)
+            if (l.getNamaLayanan().equalsIgnoreCase(term)) return Optional.of(l);
+        for (Layanan l : aktif)
+            if (l.getNamaLayanan().toLowerCase().contains(kw)) return Optional.of(l);
+        for (String word : kw.split("\\s+")) {
+            if (word.length() < 3) continue;
+            for (Layanan l : aktif)
+                if (l.getNamaLayanan().toLowerCase().contains(word)) return Optional.of(l);
+        }
+        return Optional.empty();
     }
 
-    public void hapusLayanan(Long id) {
+    public void hapus(Long id) {
         layananRepository.deleteById(id);
     }
 
-    public List<Layanan> cariLayanan(String keyword) {
+    public List<Layanan> cari(String keyword) {
         return layananRepository.findByNamaLayananContainingIgnoreCase(keyword);
     }
 }
