@@ -205,39 +205,60 @@ public class ChatEngine {
     }
 
     // =========================================================================
-    //  STATE: IDLE
+    //  MULTI-ORDER PARSER
     // =========================================================================
-    private BotResponse handleIdle(String raw, String lower, ChatSession session) {
-        String kode = cariKode(raw);
-        if (kode != null) return cekStatus(kode);
-        if (has(lower,"status pesanan","cek pesanan","lacak")) return txt("Masukkan kode pesanan.\nContoh: cek WS-001");
+    private BotResponse parseMultiOrder(String raw, String lower, ChatSession session) {
+        List<Layanan>     addonsDb = layananService.getAddonAktif();
+        List<String>      segments = splitSegments(raw);
+        List<ParsedOrder> parsed   = new ArrayList<>();
+        List<String>      errors   = new ArrayList<>();
 
-        if (has(lower,"halo","hai","hello","hi ","selamat pagi","selamat siang","selamat sore","selamat malam","hei","assalamu","permisi"))
-            return salam();
+        // Variabel penampung instruksi kecepatan & addon global ("Semua express...")
+        String globalSpeed = null;
+        boolean globalTanpaAddon = false;
+        boolean globalSemuaAddon = false;
+        List<String> globalAddonName = new ArrayList<>();
+        List<Double> globalAddonHarga = new ArrayList<>();
 
-        for (String kw : LOKASI_KW)     if (lower.contains(kw)) return respLokasi();
-        for (String kw : JAM_KW)        if (lower.contains(kw)) return respJam();
-        for (String kw : DAFTAR_KW)     if (lower.contains(kw)) return respDaftarLayanan();
-        for (String kw : PENGUMUMAN_KW) if (lower.contains(kw)) return respPengumuman();
+        for (String seg : segments) {
+            if (seg.isBlank()) continue;
+            ParsedOrder order = parseOneSegment(seg, seg.toLowerCase(), addonsDb);
 
-        for (String[] row : INFO_MAP)
-            if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find())
-                return handleInfo(row[1], row[2]);
+            if (order.errorMsg != null) { errors.add("\"" + seg.trim() + "\" → " + order.errorMsg); continue; }
 
-        boolean adaLayanan = LAYANAN_PAT.stream()
-                .anyMatch(row -> Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find());
+            // Jika segmen ini TIDAK mengandung nama layanan, tangkap sebagai instruksi global!
+            if (order.layanan == null) {
+                String segLow = seg.toLowerCase();
 
-        if (adaLayanan) return parseMultiOrder(raw, lower, session);
+                if (PAT_EXPRESS.matcher(segLow).find())      globalSpeed = "EXPRESS";
+                else if (PAT_STANDAR.matcher(segLow).find()) globalSpeed = "STANDAR";
 
-        if (has(lower,"cuci baju","cuci pakaian","mau laundry","mau cuci","pengen laundry","ingin laundry","laundry dong","laundry ya"))
-            return respTanyaLayanan();
+                if (PAT_TANPA_ADDON.matcher(segLow).find()) globalTanpaAddon = true;
+                if (PAT_SEMUA_ADDON.matcher(segLow).find()) globalSemuaAddon = true;
 
-        if (has(lower,"harga","tarif","biaya")) return respDaftarLayanan();
-        if (has(lower,"terima kasih","makasih","thanks","thx","tq"))
-            return txt("Sama-sama! Senang bisa membantu.");
-
-        return respFallback();
-    }
+                if (!globalTanpaAddon) {
+                    if (globalSemuaAddon) {
+                        for (Layanan a : addonsDb) {
+                            if (!globalAddonName.contains(a.getNamaLayanan())) {
+                                globalAddonName.add(a.getNamaLayanan());
+                                globalAddonHarga.add(a.getHarga());
+                            }
+                        }
+                    } else {
+                        for (Layanan a : addonsDb) {
+                            if (addonDipilih(a.getNamaLayanan().toLowerCase(), segLow)) {
+                                if (!globalAddonName.contains(a.getNamaLayanan())) {
+                                    globalAddonName.add(a.getNamaLayanan());
+                                    globalAddonHarga.add(a.getHarga());
+                                }
+                            }
+                        }
+                    }
+                }
+                continue; // Lanjut ke segmen berikutnya, jangan masuk ke keranjang 'parsed'
+            }
+            parsed.add(order);
+        }
 
         // ==============================================================
         //  Terapkan Instruksi Global ke Semua Layanan yang Ditemukan
