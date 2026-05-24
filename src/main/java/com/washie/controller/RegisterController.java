@@ -80,11 +80,17 @@ public class RegisterController implements Initializable {
         lblSuccess.setVisible(false);
 
         if (nama.isEmpty())      { showError("Nama lengkap tidak boleh kosong.");   return; }
+        if (noTelp.isEmpty())    { showError("Nomor telepon tidak boleh kosong.");  return; }
+        if (!noTelp.matches("^08[0-9]{9,11}$")) {
+            showError("Nomor telepon harus diawali '08', berisi angka, dan 11-13 digit.");
+            return;
+        }
+
         if (pass.length() < 6)   { showError("Password minimal 6 karakter.");       return; }
         if (!pass.equals(konfir)) { showError("Konfirmasi password tidak cocok.");   return; }
 
         try {
-            userService.register(nama, noTelp.isEmpty() ? null : noTelp, pass);
+            userService.register(nama, noTelp, pass);
             tfNama.clear();
             tfNoTelp.clear();
 
