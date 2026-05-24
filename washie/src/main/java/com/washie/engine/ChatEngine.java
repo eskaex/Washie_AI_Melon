@@ -682,6 +682,23 @@ public class ChatEngine {
     }
 
     // =========================================================================
+    //  VALIDASI
+    // =========================================================================
+    private String validasiBerat(double kg) {
+        if (kg <= 0)            return "Berat harus lebih dari 0 kg.";
+        if (kg < MIN_BERAT_KG)  return String.format("Berat minimal %.0f kg (input: %.1f kg).", MIN_BERAT_KG, kg);
+        if (kg > MAX_BERAT_KG)  return String.format("Berat maksimal %.0f kg (input: %.1f kg). Hubungi WA untuk pesanan besar.", MAX_BERAT_KG, kg);
+        return null;
+    }
+
+    private String validasiItem(int item) {
+        if (item <= 0)       return "Jumlah harus lebih dari 0.";
+        if (item < MIN_ITEM) return "Jumlah minimal " + MIN_ITEM + " item.";
+        if (item > MAX_ITEM) return "Jumlah maksimal " + MAX_ITEM + " item. Hubungi WA untuk pesanan besar.";
+        return null;
+    }
+
+    // =========================================================================
     //  TANYA BERAT
     // =========================================================================
     private BotResponse handleTanyaBerat(String raw, String lower, ChatSession session) {
