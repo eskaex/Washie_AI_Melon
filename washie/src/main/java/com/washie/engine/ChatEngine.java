@@ -205,39 +205,60 @@ public class ChatEngine {
     }
 
     // =========================================================================
-    //  STATE: IDLE
+    //  MULTI-ORDER PARSER
     // =========================================================================
-    private BotResponse handleIdle(String raw, String lower, ChatSession session) {
-        String kode = cariKode(raw);
-        if (kode != null) return cekStatus(kode);
-        if (has(lower,"status pesanan","cek pesanan","lacak")) return txt("Masukkan kode pesanan.\nContoh: cek WS-001");
+    private BotResponse parseMultiOrder(String raw, String lower, ChatSession session) {
+        List<Layanan>     addonsDb = layananService.getAddonAktif();
+        List<String>      segments = splitSegments(raw);
+        List<ParsedOrder> parsed   = new ArrayList<>();
+        List<String>      errors   = new ArrayList<>();
 
-        if (has(lower,"halo","hai","hello","hi ","selamat pagi","selamat siang","selamat sore","selamat malam","hei","assalamu","permisi"))
-            return salam();
+        // Variabel penampung instruksi kecepatan & addon global ("Semua express...")
+        String globalSpeed = null;
+        boolean globalTanpaAddon = false;
+        boolean globalSemuaAddon = false;
+        List<String> globalAddonName = new ArrayList<>();
+        List<Double> globalAddonHarga = new ArrayList<>();
 
-        for (String kw : LOKASI_KW)     if (lower.contains(kw)) return respLokasi();
-        for (String kw : JAM_KW)        if (lower.contains(kw)) return respJam();
-        for (String kw : DAFTAR_KW)     if (lower.contains(kw)) return respDaftarLayanan();
-        for (String kw : PENGUMUMAN_KW) if (lower.contains(kw)) return respPengumuman();
+        for (String seg : segments) {
+            if (seg.isBlank()) continue;
+            ParsedOrder order = parseOneSegment(seg, seg.toLowerCase(), addonsDb);
 
-        for (String[] row : INFO_MAP)
-            if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find())
-                return handleInfo(row[1], row[2]);
+            if (order.errorMsg != null) { errors.add("\"" + seg.trim() + "\" → " + order.errorMsg); continue; }
 
-        boolean adaLayanan = LAYANAN_PAT.stream()
-                .anyMatch(row -> Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find());
+            // Jika segmen ini TIDAK mengandung nama layanan, tangkap sebagai instruksi global!
+            if (order.layanan == null) {
+                String segLow = seg.toLowerCase();
 
-        if (adaLayanan) return parseMultiOrder(raw, lower, session);
+                if (PAT_EXPRESS.matcher(segLow).find())      globalSpeed = "EXPRESS";
+                else if (PAT_STANDAR.matcher(segLow).find()) globalSpeed = "STANDAR";
 
-        if (has(lower,"cuci baju","cuci pakaian","mau laundry","mau cuci","pengen laundry","ingin laundry","laundry dong","laundry ya"))
-            return respTanyaLayanan();
+                if (PAT_TANPA_ADDON.matcher(segLow).find()) globalTanpaAddon = true;
+                if (PAT_SEMUA_ADDON.matcher(segLow).find()) globalSemuaAddon = true;
 
-        if (has(lower,"harga","tarif","biaya")) return respDaftarLayanan();
-        if (has(lower,"terima kasih","makasih","thanks","thx","tq"))
-            return txt("Sama-sama! Senang bisa membantu.");
-
-        return respFallback();
-    }
+                if (!globalTanpaAddon) {
+                    if (globalSemuaAddon) {
+                        for (Layanan a : addonsDb) {
+                            if (!globalAddonName.contains(a.getNamaLayanan())) {
+                                globalAddonName.add(a.getNamaLayanan());
+                                globalAddonHarga.add(a.getHarga());
+                            }
+                        }
+                    } else {
+                        for (Layanan a : addonsDb) {
+                            if (addonDipilih(a.getNamaLayanan().toLowerCase(), segLow)) {
+                                if (!globalAddonName.contains(a.getNamaLayanan())) {
+                                    globalAddonName.add(a.getNamaLayanan());
+                                    globalAddonHarga.add(a.getHarga());
+                                }
+                            }
+                        }
+                    }
+                }
+                continue; // Lanjut ke segmen berikutnya, jangan masuk ke keranjang 'parsed'
+            }
+            parsed.add(order);
+        }
 
         // ==============================================================
         //  Terapkan Instruksi Global ke Semua Layanan yang Ditemukan
@@ -382,7 +403,193 @@ public class ChatEngine {
         return txt(sb.toString());
     }
 
+    // =========================================================================
+    //  STATE: TANYA_SPEED_ADDON_GLOBAL
+    // =========================================================================
+    private BotResponse handleSpeedAddonGlobal(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { resetSemua(session); return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?"); }
 
+        List<Layanan>     addonsDb = layananService.getAddonAktif();
+        List<ParsedOrder> orders   = session.pendingSpeedAddon;
+
+        // ── Cek apakah ada keyword kecepatan per-layanan (Mode C) ──────────
+        boolean adaPerLayanan = orders.stream().anyMatch(o ->
+                lower.contains(o.layanan.getNamaLayanan().toLowerCase().split("\\s+")[0]) ||
+                        lower.contains(o.layanan.getNamaLayanan().toLowerCase())
+        );
+
+        if (adaPerLayanan) {
+            // Mode C: parse per-layanan dari kalimat ini
+            return parseSpeedAddonPerLayanan(raw, lower, orders, addonsDb, session);
+        }
+
+        // ── Mode B: satu kecepatan+addon untuk semua ──────────────────────
+        String kecepatan = null;
+        if (PAT_EXPRESS.matcher(lower).find()) kecepatan = "EXPRESS";
+        else if (PAT_STANDAR.matcher(lower).find()) kecepatan = "STANDAR";
+
+        if (kecepatan == null) {
+            return txt("Saya belum mengerti kecepatannya.\n\n" +
+                    "Ketik standar atau express (berlaku untuk semua item),\n" +
+                    "atau tentukan per-layanan:\n" +
+                    "  \"setrika express, kering standar\"");
+        }
+
+        // Cek addon global
+        boolean tanpa = PAT_TANPA_ADDON.matcher(lower).find();
+        boolean semua = PAT_SEMUA_ADDON.matcher(lower).find();
+
+        List<String> addonNama  = new ArrayList<>();
+        List<Double> addonHarga = new ArrayList<>();
+
+        if (!tanpa) {
+            if (semua) {
+                addonsDb.forEach(a -> { addonNama.add(a.getNamaLayanan()); addonHarga.add(a.getHarga()); });
+            } else {
+                for (Layanan a : addonsDb) {
+                    if (addonDipilih(a.getNamaLayanan().toLowerCase(), lower)) {
+                        addonNama.add(a.getNamaLayanan());
+                        addonHarga.add(a.getHarga());
+                    }
+                }
+            }
+        }
+
+        // Terapkan ke semua item
+        for (ParsedOrder o : orders) {
+            if ("EXPRESS".equals(kecepatan) && !o.layanan.isBisaExpress()) {
+                o.kecepatan = "STANDAR";
+                o.isDowngraded = true; // Tandai!
+            } else {
+                o.kecepatan = kecepatan;
+            }
+
+            o.tanpaAddon = tanpa;
+            o.semuaAddon = semua;
+            o.addonName.clear(); o.addonHarga.clear();
+            o.addonName.addAll(addonNama); o.addonHarga.addAll(addonHarga);
+
+            // CEK DOWNGRADE SEBELUM MASUK DRAFT
+            if (o.isDowngraded) {
+                session.downgradedLayanan.add(o.layanan.getNamaLayanan());
+            }
+            session.draftItems.add(toDraft(o));
+        }
+
+        session.pendingSpeedAddon.clear();
+
+        // PANGGIL PENJAGA GERBANG
+        return routeToNotaOrDowngrade(session);
+    }
+
+    /** Mode C: parse kecepatan+addon berbeda per-layanan */
+    private BotResponse parseSpeedAddonPerLayanan(String raw, String lower,
+                                                  List<ParsedOrder> orders, List<Layanan> addonsDb, ChatSession session) {
+
+        // Pisah segmen berdasarkan koma
+        String[] parts = raw.split(",\\s*|;\\s*");
+
+        // Map nama layanan → order
+        Map<String, ParsedOrder> orderMap = new LinkedHashMap<>();
+        for (ParsedOrder o : orders)
+            orderMap.put(o.layanan.getNamaLayanan().toLowerCase(), o);
+
+        Set<ParsedOrder> sudahDiatur = new HashSet<>();
+
+        for (String part : parts) {
+            String partLow = part.toLowerCase().trim();
+
+            // Cari layanan yang disebut di segmen ini
+            ParsedOrder target = null;
+            for (Map.Entry<String, ParsedOrder> entry : orderMap.entrySet()) {
+                // Cek apakah nama layanan (atau kata pertamanya) ada di segmen
+                String[] words = entry.getKey().split("\\s+");
+                for (String w : words) {
+                    if (w.length() >= 4 && partLow.contains(w)) {
+                        target = entry.getValue();
+                        break;
+                    }
+                }
+                if (target != null) break;
+            }
+
+            if (target == null) {
+                // Coba match dengan keyword layanan
+                for (String[] row : LAYANAN_PAT) {
+                    if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(part).find()) {
+                        Optional<Layanan> opt = cariLayananDb(row[1]);
+                        if (opt.isPresent()) {
+                            String key = opt.get().getNamaLayanan().toLowerCase();
+                            target = orderMap.get(key);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (target == null) continue;
+
+            // Deteksi kecepatan
+            if (PAT_EXPRESS.matcher(partLow).find())       target.kecepatan = "EXPRESS";
+            else if (PAT_STANDAR.matcher(partLow).find())  target.kecepatan = "STANDAR";
+
+            // Deteksi addon
+            boolean tanpa = PAT_TANPA_ADDON.matcher(partLow).find();
+            boolean semua = PAT_SEMUA_ADDON.matcher(partLow).find();
+            target.tanpaAddon = tanpa;
+            target.semuaAddon = semua;
+            target.addonName.clear(); target.addonHarga.clear();
+
+            if (!tanpa) {
+                if (semua) {
+                    for (Layanan a : addonsDb) {
+                        target.addonName.add(a.getNamaLayanan());
+                        target.addonHarga.add(a.getHarga());
+                    };
+                } else {
+                    for (Layanan a : addonsDb) {
+                        if (addonDipilih(a.getNamaLayanan().toLowerCase(), partLow)) {
+                            target.addonName.add(a.getNamaLayanan());
+                            target.addonHarga.add(a.getHarga());
+                        }
+                    }
+                }
+            }
+            sudahDiatur.add(target);
+        }
+
+        // Cek item yang belum diatur
+        List<ParsedOrder> belumDiatur = orders.stream()
+                .filter(o -> !sudahDiatur.contains(o) || o.kecepatan == null)
+                .collect(Collectors.toList());
+
+        if (!belumDiatur.isEmpty()) {
+            // Tanya sisanya → default standar tanpa addon? atau tanya user
+            StringBuilder sb = new StringBuilder("Beberapa layanan belum ditentukan kecepatannya:\n\n");
+            belumDiatur.forEach(o -> sb.append("- ").append(o.layanan.getNamaLayanan()).append("\n"));
+            sb.append("\nKetik kecepatan untuk item di atas (contoh: semua standar tanpa addon),\n");
+            sb.append("atau ketik lewati untuk pakai standar tanpa add-on.");
+            // Simpan yang sudah OK
+            orders.stream().filter(sudahDiatur::contains).filter(o -> o.kecepatan != null)
+                    .forEach(o -> session.draftItems.add(toDraft(o)));
+            session.pendingSpeedAddon = belumDiatur;
+            return txt(sb.toString());
+        }
+
+        // Semua sudah diatur
+        for (ParsedOrder o : orders) {
+            // CEK DOWNGRADE SEBELUM MASUK DRAFT
+            if (o.isDowngraded) {
+                session.downgradedLayanan.add(o.layanan.getNamaLayanan());
+            }
+            session.draftItems.add(toDraft(o));
+        }
+
+        session.pendingSpeedAddon.clear();
+
+        // PANGGIL PENJAGA GERBANG
+        return routeToNotaOrDowngrade(session);
+    }
 
     // =========================================================================
     //  TANYA BERAT
