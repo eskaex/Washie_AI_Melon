@@ -69,22 +69,23 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedInfoLaundry() {
         if (infoRepository.findByKategori("IDENTITAS").isEmpty()) {
-            infoRepository.save(new InfoEntity("IDENTITAS",      "nama_usaha",    "Washie Laundry"));
-            infoRepository.save(new InfoEntity("IDENTITAS",      "pemilik",       "Bapak Agung Prayono"));
-            infoRepository.save(new InfoEntity("IDENTITAS",      "tahun_berdiri", "2020"));
-            infoRepository.save(new InfoEntity("LOKASI_KONTAK",  "alamat",        "Jl. Kusbini No. 08, Yogyakarta"));
-            infoRepository.save(new InfoEntity("LOKASI_KONTAK",  "whatsapp",      "0852-3456-7890"));
-            infoRepository.save(new InfoEntity("LOKASI_KONTAK",  "instagram",     "@washie.laundry"));
-            infoRepository.save(new InfoEntity("JAM_OPERASIONAL","senin_jumat",   "08.00 - 21.00"));
-            infoRepository.save(new InfoEntity("JAM_OPERASIONAL","sabtu_minggu",  "09.00 - 19.00"));
-            infoRepository.save(new InfoEntity("JAM_OPERASIONAL","hari_libur",    "Tutup"));
+            infoRepository.save(new InfoEntity("IDENTITAS", "nama_usaha", "Washie Laundry"));
+            infoRepository.save(new InfoEntity("IDENTITAS", "pemilik", "Bapak Agung Prayono"));
+            infoRepository.save(new InfoEntity("IDENTITAS", "tahun_berdiri", "2020"));
+            infoRepository.save(new InfoEntity("LOKASI_KONTAK", "alamat", "Jl. Kusbini No. 08, Yogyakarta"));
+            infoRepository.save(new InfoEntity("LOKASI_KONTAK", "whatsapp", "0852-3456-7890"));
+            infoRepository.save(new InfoEntity("LOKASI_KONTAK", "instagram", "@washie.laundry"));
+            infoRepository.save(new InfoEntity("JAM_OPERASIONAL", "senin_jumat", "08.00 - 21.00"));
+            infoRepository.save(new InfoEntity("JAM_OPERASIONAL", "sabtu_minggu", "09.00 - 19.00"));
+            infoRepository.save(new InfoEntity("JAM_OPERASIONAL", "hari_libur", "Tutup"));
         }
+    }
 
-        private void seedExpressConfig() {
-            if (infoRepository.findByKategori("ADDON_CONFIG").isEmpty()) {
-                infoRepository.save(new InfoEntity("ADDON_CONFIG", "express_surcharge_per_kg", "5000"));
-                infoRepository.save(new InfoEntity("ADDON_CONFIG", "express_surcharge_flat",   "15000"));
-            }
+    private void seedExpressConfig() {
+        if (infoRepository.findByKategori("ADDON_CONFIG").isEmpty()) {
+            infoRepository.save(new InfoEntity("ADDON_CONFIG", "express_surcharge_per_kg", "5000"));
+            infoRepository.save(new InfoEntity("ADDON_CONFIG", "express_surcharge_flat",   "15000"));
         }
     }
 }
+
