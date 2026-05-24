@@ -592,6 +592,96 @@ public class ChatEngine {
     }
 
     // =========================================================================
+    //  PARSE SATU SEGMEN
+    // =========================================================================
+    private ParsedOrder parseOneSegment(String seg, String segLow, List<Layanan> addonsDb) {
+        ParsedOrder order = new ParsedOrder();
+        order.rawSegment = seg;
+
+        // 1. Deteksi layanan
+        for (String[] row : LAYANAN_PAT) {
+            if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(seg).find()) {
+                Optional<Layanan> opt = cariLayananDb(row[1]);
+                if (opt.isPresent()) { order.layanan = opt.get(); break; }
+            }
+        }
+        if (order.layanan == null) return order;
+
+        // 2. Kuantitas + validasi negatif
+        if (order.layanan.isPerKg()) {
+            if (PAT_NEG.matcher(segLow).find()) { order.errorMsg = "Berat tidak boleh negatif."; return order; }
+            double kg = extractKg(segLow);
+            if (kg > 0) {
+                String err = validasiBerat(kg);
+                if (err != null) { order.errorMsg = err; return order; }
+                order.beratKg = kg;
+            }
+        } else {
+            if (PAT_NEG.matcher(segLow).find()) { order.errorMsg = "Jumlah tidak boleh negatif."; return order; }
+            int item = extractItem(segLow);
+            if (item > 0) {
+                String err = validasiItem(item);
+                if (err != null) { order.errorMsg = err; return order; }
+                order.jumlahItem = item;
+            }
+        }
+
+        // 3. Kecepatan
+        if (PAT_EXPRESS.matcher(segLow).find()) {
+            if (order.layanan.isBisaExpress()) {
+                order.kecepatan = "EXPRESS";
+            } else {
+                order.kecepatan = "STANDAR";
+                order.isDowngraded = true; // Tandai!
+            }
+        } else if (PAT_STANDAR.matcher(segLow).find()) {
+            order.kecepatan = "STANDAR";
+        }
+
+        // 4. Addon (opsional)
+        order.tanpaAddon = PAT_TANPA_ADDON.matcher(segLow).find();
+        order.semuaAddon = PAT_SEMUA_ADDON.matcher(segLow).find();
+
+        if (!order.tanpaAddon) {
+            if (order.semuaAddon) {
+                addonsDb.forEach(a -> { order.addonName.add(a.getNamaLayanan()); order.addonHarga.add(a.getHarga()); });
+            } else {
+                for (Layanan a : addonsDb) {
+                    if (addonDipilih(a.getNamaLayanan().toLowerCase(), segLow)) {
+                        order.addonName.add(a.getNamaLayanan());
+                        order.addonHarga.add(a.getHarga());
+                    }
+                }
+            }
+        }
+
+        return order;
+    }
+
+    // =========================================================================
+    //  SPLIT SEGMEN
+    // =========================================================================
+    private List<String> splitSegments(String raw) {
+        // Memisahkan berdasarkan koma, titik koma, enter, ATAU titik yang diikuti spasi
+        String[] parts = raw.split("(?i),\\s*|;\\s*|\\.\\s+|\\n+");
+        List<String> result = new ArrayList<>();
+
+        for (String part : parts) {
+            // Tambahkan "semua" dan "add" ke lookahead agar kalimat seperti "dan semua express" terpisah
+            Matcher m = Pattern.compile(
+                    "(?i)\\bdan\\b(?=\\s*(?:cuci|setrika|dry|bedcover|sprei|selimut|handuk|gorden|karpet|boneka|semua|add))"
+            ).matcher(part);
+            if (m.find()) {
+                result.add(part.substring(0, m.start()).trim());
+                result.add(part.substring(m.end()).trim());
+            } else {
+                result.add(part.trim());
+            }
+        }
+        return result.stream().filter(s -> !s.isBlank()).collect(Collectors.toList());
+    }
+
+    // =========================================================================
     //  TANYA BERAT
     // =========================================================================
     private BotResponse handleTanyaBerat(String raw, String lower, ChatSession session) {
