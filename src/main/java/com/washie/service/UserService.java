@@ -25,6 +25,9 @@ public class UserService {
         if (userRepository.existsByNamaLengkap(namaLengkap)) {
             throw new IllegalArgumentException("Nama lengkap sudah terdaftar.");
         }
+        if (noTelepon == null || !noTelepon.matches("^08[0-9]{9,11}$")) {
+            throw new IllegalArgumentException("Nomor telepon tidak valid! Harus diawali '08', hanya berisi angka, dan memiliki panjang 11-13 digit.");
+        }
         if (noTelepon != null && userRepository.existsByNoTelepon(noTelepon)) {
             throw new IllegalArgumentException("Nomor telepon sudah terdaftar.");
         }
