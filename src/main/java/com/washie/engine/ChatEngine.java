@@ -1103,7 +1103,7 @@ public class ChatEngine {
 
     private BotResponse respDaftarLayanan() { return respTanyaLayanan(); }
     private BotResponse cekStatus(String kode) {
-        return pesananService.getByKode(kode).map(p -> txt("Status " + p.getKodePesanan() + ":\nNama: " + p.getUser().getNamaLengkap() + "\nLayanan: " + (p.getLayanan() != null ? p.getLayanan().getNamaLayanan() : "-") + (p.getItems().size() > 1 ? " +" + (p.getItems().size()-1) + " lagi" : "") + "\nTotal: Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\nStatus: " + switch(p.getStatus()){case DIPROSES -> "Sedang Diproses"; case SELESAI -> "Selesai - siap diambil!"; case DIAMBIL -> "Sudah Diambil";})).orElse(txt("Pesanan " + kode + " tidak ditemukan."));
+        return pesananService.getByKode(kode).map(p -> txt("Status " + p.getKodePesanan() + ":\nNama: " + p.getUser().getNamaLengkap() + "\nLayanan: " + (p.getLayanan() != null ? p.getLayanan().getNamaLayanan() : "-") + (p.getItems().size() > 1 ? " +" + (p.getItems().size()-1) + " lagi" : "") + "\nTotal: Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\nStatus: " + switch(p.getStatus()){case BELUM_DIPROSES -> "📥 Belum Diproses (Menunggu Admin)"; case DIPROSES -> "Sedang Diproses"; case SELESAI -> "Selesai - siap diambil!"; case DIAMBIL -> "Sudah Diambil"; case DIBATALKAN -> "❌ Dibatalkan";})).orElse(txt("Pesanan " + kode + " tidak ditemukan."));
     }
 
     private BotResponse handleBatalkanPesanan(String raw, String lower){
@@ -1133,9 +1133,11 @@ public class ChatEngine {
         for (int i = 0; i < limit; i++) {
             Pesanan p = riwayat.get(i);
             String status = switch(p.getStatus()) {
+                case BELUM_DIPROSES -> "📥 Belum Diproses (Menunggu Admin)";
                 case DIPROSES -> "⏳ Diproses";
                 case SELESAI -> "✅ Selesai";
                 case DIAMBIL -> "🛍️ Diambil";
+                case DIBATALKAN -> "❌ Dibatalkan";
                 default -> p.getStatus().name();
             };
 
