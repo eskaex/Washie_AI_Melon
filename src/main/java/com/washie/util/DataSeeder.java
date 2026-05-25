@@ -46,14 +46,14 @@ public class DataSeeder implements CommandLineRunner {
             layananRepository.save(new Layanan("Cuci + Setrika",              7000d, "3 Hari Kerja",   true,  true));
             layananRepository.save(new Layanan("Cuci Kering",                 5000d, "2 Hari Kerja",   true,  true));
             layananRepository.save(new Layanan("Setrika Saja",                4000d, "1 Hari Kerja",   true,  true));
-            layananRepository.save(new Layanan("Dry Cleaning",               20000d, "3-5 Hari Kerja", false, true));
-            layananRepository.save(new Layanan("Cuci Handuk",                 4000d, "1-2 Hari Kerja", false, true));
-            layananRepository.save(new Layanan("Cuci Karpet",                12000d, "2-3 Hari Kerja", false, true));
-            layananRepository.save(new Layanan("Cuci Bedcover",              20000d, "2-3 Hari Kerja", false, false));
+            layananRepository.save(new Layanan("Dry Cleaning",               20000d, "4 Hari Kerja", false, true));
+            layananRepository.save(new Layanan("Cuci Handuk",                 4000d, "2 Hari Kerja", false, true));
+            layananRepository.save(new Layanan("Cuci Karpet",                12000d, "3 Hari Kerja", false, true));
+            layananRepository.save(new Layanan("Cuci Bedcover",              20000d, "3 Hari Kerja", false, false));
             layananRepository.save(new Layanan("Cuci Sprei & Sarung Bantal", 15000d, "2 Hari Kerja",   false, false));
-            layananRepository.save(new Layanan("Cuci Selimut",               15000d, "2-3 Hari Kerja", true,  false));
-            layananRepository.save(new Layanan("Cuci Gorden & Vitrase",      18000d, "3-4 Hari Kerja", false, false));
-            layananRepository.save(new Layanan("Cuci Boneka",                15000d, "2-3 Hari Kerja", false, false));
+            layananRepository.save(new Layanan("Cuci Selimut",               15000d, "3 Hari Kerja", true,  false));
+            layananRepository.save(new Layanan("Cuci Gorden & Vitrase",      18000d, "4 Hari Kerja", false, false));
+            layananRepository.save(new Layanan("Cuci Boneka",                15000d, "3 Hari Kerja", false, false));
         }
     }
 
