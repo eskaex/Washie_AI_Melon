@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<HBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.washie.controller.ChatController"
+      stylesheets="@/css/styles.css"
+      prefWidth="1100" prefHeight="750">
+
+    <!-- SIDEBAR -->
+    <VBox styleClass="sidebar" prefWidth="300" spacing="0">
+        <HBox styleClass="sidebar-header" spacing="10" alignment="CENTER_LEFT">
+            <Label styleClass="sidebar-avatar" text="G"/>
+            <Label fx:id="lblUserName" styleClass="sidebar-username" text="Nama User"/>
+        </HBox>
+        <Separator/>
+        <VBox styleClass="sidebar-menu" spacing="0">
+            <Label text="Menu" styleClass="sidebar-section-label"/>
+            <Button text="Buat Percakapan Baru" styleClass="sidebar-menu-btn"
+                    maxWidth="Infinity" onAction="#handleBuatPercakapanBaru"/>
+        </VBox>
+        <Separator/>
+        <VBox VBox.vgrow="ALWAYS" styleClass="sidebar-menu" spacing="0">
+            <Label text="Riwayat Terbaru" styleClass="sidebar-section-label"/>
+            <ScrollPane fitToWidth="true" styleClass="history-scroll" VBox.vgrow="ALWAYS">
+                <VBox fx:id="vboxHistory" spacing="2"/>
+            </ScrollPane>
+        </VBox>
+        <Button text="Keluar" styleClass="btn-keluar" maxWidth="Infinity"
+                prefHeight="46" onAction="#handleKeluar"/>
+    </VBox>
+
+    <!-- CHAT AREA -->
+    <VBox HBox.hgrow="ALWAYS" spacing="0">
+        <HBox styleClass="chat-header" alignment="CENTER_LEFT" spacing="12">
+            <Label styleClass="bot-avatar-header" text="W"/>
+            <Label text="Washie Assistant" styleClass="chat-header-title"/>
+        </HBox>
+
+        <ScrollPane fx:id="scrollPane" VBox.vgrow="ALWAYS" fitToWidth="true" styleClass="chat-scroll">
+            <VBox fx:id="vboxMessages" styleClass="messages-container" spacing="8"/>
+        </ScrollPane>
+
+        <HBox styleClass="chat-input-area" spacing="10" alignment="CENTER">
+            <TextField fx:id="tfInput" styleClass="chat-input" HBox.hgrow="ALWAYS"
+                       promptText="Ketik pertanyaan Anda disini..." onAction="#handleSend"/>
+            <Button styleClass="btn-send" text="Kirim" onAction="#handleSend"/>
+        </HBox>
+    </VBox>
+</HBox>
