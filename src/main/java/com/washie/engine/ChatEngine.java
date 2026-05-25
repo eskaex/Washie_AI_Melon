@@ -204,7 +204,12 @@ public class ChatEngine {
     //  STATE: IDLE
     // =========================================================================
     private BotResponse handleIdle(String raw, String lower, ChatSession session) {
+        BotResponse responRahasia = cekEasterEgg(raw, lower);
+        if (responRahasia != null) {
+            return responRahasia;
+        }
         String kode = cariKode(raw);
+
         if (has(lower, "batal", "batalkan", "cancel") && (has(lower, "pesan", "order", "ws-"))) {
             return handleBatalkanPesanan(raw, lower);
         }
@@ -945,7 +950,7 @@ public class ChatEngine {
 
     private BotResponse promptAspekUbah(ChatSession s) {
         ItemDraft d = s.draftItems.get(s.editIndex);
-        return txt("Apa yang ingin diubah dari *" + d.layanan.getNamaLayanan() + "*?\n" +
+        return txt("Apa yang ingin diubah dari " + d.layanan.getNamaLayanan() + "?\n" +
                 "1. Kuantitas (" + (d.layanan.isPerKg() ? "Berat" : "Jumlah Item") + ")\n" +
                 "2. Kecepatan\n" +
                 "3. Add-on\n" +
@@ -1351,62 +1356,17 @@ public class ChatEngine {
     // =========================================================================
     private BotResponse cekEasterEgg(String raw, String lower) {
 
-        // ── 1. SIAPA KAMU / WHO ARE YOU ──────────────────────────────────
-        if (has(lower,"siapa kamu","siapa washie","kamu siapa","who are you","kamu itu apa")) {
+        if (has(lower, "saya adalah pak budsus", "saya pak budsus", "ini pak budsus")) {
             return txt(
-                    "Saya Washie, asisten virtual laundry yang siap membantu 24/7!\n\n" +
-                            "Sedikit rahasia: saya dibuat dengan penuh cinta oleh tim developer muda " +
-                            "dari UKDW Yogyakarta sebagai proyek RPLBO.\n\n" +
-                            "Di balik layar, saya ditenagai oleh:\n" +
-                            "  JavaFX    → tampilan yang kamu lihat\n" +
-                            "  Spring Boot → otak yang berpikir\n" +
-                            "  SQLite    → memori tempat saya menyimpan segalanya\n\n" +
-                            "Saya memang hanya bot, tapi saya berusaha menjadi bot terbaik untuk Washie! 🧺✨"
+                    "😱 ASTAGA! Selamat datang, Bapak Budsus yang terhormat!\n" +
+                            "Mohon maaf Washie tidak menyiapkan karpet merah.\n\n" +
+                            "Beli kemeja warnanya biru,\n" +
+                            "Dipakai santai di kampus kita.\n" +
+                            "Wahai Pak Budsus dosen panutanku,\n" +
+                            "Plis kasih nilai A, I love you Pak Budsus tercinta! 💛\n"
             );
         }
 
-        // ── 2. KATA RAHASIA: "agung" (nama pemilik laundry) ─────────────
-        if (lower.equals("agung") || lower.equals("pak agung") || lower.equals("bapak agung")) {
-            return txt(
-                    "🤫 Ssst... kamu tahu nama pemilik Washie!\n\n" +
-                            "Halo dari Washie Assistant!\n" +
-                            "Bapak Agung Prayono adalah founder Washie Laundry sejak 2020.\n" +
-                            "Di bawah kepemimpinan beliau, Washie terus berkembang melayani pelanggan setia.\n\n" +
-                            "Terima kasih sudah mengenal kami lebih dekat! 🧺💛"
-            );
-        }
-
-        // ── 3. KATA RAHASIA: "washie123" ─────────────────────────────────
-        if (lower.equals("washie123")) {
-            return txt(
-                    "🎉 KODE RAHASIA DITERIMA!\n\n" +
-                            "Selamat! Kamu berhasil menemukan easter egg tersembunyi di Washie Bot.\n\n" +
-                            "Fun fact tentang Washie:\n" +
-                            "  🧺 Kami mencuci lebih dari 1.000 kg pakaian setiap bulan\n" +
-                            "  ⏱️  Layanan tercepat kami: Express 1 Hari Kerja\n" +
-                            "  🌸  Add-on favorit pelanggan: Pewangi Premium\n" +
-                            "  💛  Warna kebanggaan kami: Biru & Kuning\n\n" +
-                            "Terima kasih sudah menjadi bagian dari keluarga Washie! 🎊"
-            );
-        }
-
-        // ── 4. KATA RAHASIA: "rplbo" (mata kuliah) ───────────────────────
-        if (has(lower,"rplbo","rekayasa perangkat lunak")) {
-            return txt(
-                    "🎓 Hei, kamu pasti mahasiswa UKDW!\n\n" +
-                            "Washie Bot adalah proyek RPLBO (Rekayasa Perangkat Lunak Berbasis Objek).\n\n" +
-                            "Tech stack yang dipakai:\n" +
-                            "  ☕ Java 21         → bahasa pemrograman\n" +
-                            "  🖥️  JavaFX 21      → antarmuka grafis\n" +
-                            "  🌱 Spring Boot 3  → framework backend\n" +
-                            "  🗄️  Spring Data JPA → akses database\n" +
-                            "  🪶 SQLite          → database ringan\n" +
-                            "  🤖 Rule-based NLP  → otak chatbot ini\n\n" +
-                            "Semoga nilainya bagus ya! 🍀"
-            );
-        }
-
-        // ── 5. KATA RAHASIA: "ukdw" ───────────────────────────────────────
         if (lower.equals("ukdw") || has(lower,"universitas kristen duta wacana")) {
             return txt(
                     "🏫 UKDW — Universitas Kristen Duta Wacana, Yogyakarta!\n\n" +
@@ -1417,63 +1377,6 @@ public class ChatEngine {
             );
         }
 
-        // ── 6. KATA RAHASIA: "dev mode" ──────────────────────────────────
-        if (has(lower,"dev mode","developer mode","mode developer","debug")) {
-            List<Layanan> semua  = layananService.getAll();
-            long layananCount    = semua.stream().filter(l -> l.getTipe() == Layanan.Tipe.LAYANAN).count();
-            long addonCount      = semua.stream().filter(l -> l.getTipe() == Layanan.Tipe.ADDON).count();
-            long pengumuman      = infoService.getPengumuman().size();
-            return txt(
-                    "🔧 DEV MODE AKTIF\n\n" +
-                            "Status sistem:\n" +
-                            "  Layanan aktif : " + layananCount + " layanan\n" +
-                            "  Add-on aktif  : " + addonCount + " addon\n" +
-                            "  Pengumuman    : " + pengumuman + " aktif\n\n" +
-                            "States tersedia:\n" +
-                            "  IDLE → TANYA_BERAT/JUMLAH → PILIH_KECEPATAN\n" +
-                            "  → PILIH_ADDON → TANYA_TAMBAH_ITEM → KONFIRMASI\n" +
-                            "  → CLARIFICATION → TANYA_SPEED_ADDON_GLOBAL\n\n" +
-                            "Build: Washie Bot v1.0 | Spring Boot 3 | JavaFX 21\n" +
-                            "Status: RUNNING ✅"
-            );
-        }
-
-        // ── 7. KATA RAHASIA: "cuci otak" (humor) ─────────────────────────
-        if (has(lower,"cuci otak","laundry otak","cuci pikiran")) {
-            return txt(
-                    "🧠 Waduh, sayangnya kami tidak menyediakan layanan Cuci Otak!\n\n" +
-                            "Tapi tenang, untuk pakaian kamu:\n" +
-                            "  🧺 Cuci Kering   → Rp5.000/kg\n" +
-                            "  👔 Cuci + Setrika → Rp7.000/kg\n" +
-                            "  ⚡ Express       → selesai 1 hari!\n\n" +
-                            "Mau pesan? Ketik nama layanan + berat/jumlah 😄"
-            );
-        }
-
-        // ── 8. KONAMI CODE (text version): "atas atas bawah bawah" ──────
-        if (has(lower,"atas atas bawah bawah kiri kanan kiri kanan")) {
-            return txt(
-                    "🎮 KONAMI CODE DETECTED!\n\n" +
-                            "↑ ↑ ↓ ↓ ← → ← → B A\n\n" +
-                            "Selamat! Kamu membuka cheat mode Washie:\n\n" +
-                            "✨ DISKON IMAJINER 99% AKTIF ✨\n" +
-                            "(Sayangnya ini hanya easter egg, bukan diskon sungguhan 😂)\n\n" +
-                            "Tapi benerannya, Washie tetap memberikan harga terbaik!\n" +
-                            "Cek daftar layanan kami untuk harga yang nyata 🧺"
-            );
-        }
-
-        // ── 9. KATA RAHASIA: "kapan selesai" tanpa konteks pesanan ───────
-        if (lower.equals("kapan selesai") || lower.equals("udah selesai belum")) {
-            return txt(
-                    "😅 Kamu tanya ke saya, tapi saya tidak tahu kamu sedang menunggu pesanan yang mana!\n\n" +
-                            "Untuk cek status pesanan, ketik kode pesanan kamu.\n" +
-                            "Contoh: cek WS-001\n\n" +
-                            "Tidak ingat kodenya? Cek struk atau tanya langsung ke WhatsApp kami 📱"
-            );
-        }
-
-        // ── 10. KATA RAHASIA: "i love washie" ────────────────────────────
         if (has(lower,"i love washie","aku suka washie","saya suka washie","love washie","washie terbaik","washie the best")) {
             return txt(
                     "💛 Aww, Washie juga sayang kamu!\n\n" +
@@ -1487,7 +1390,7 @@ public class ChatEngine {
             );
         }
 
-        return null; // bukan easter egg
+        return null;
     }
 
     private BotResponse respFallback() {

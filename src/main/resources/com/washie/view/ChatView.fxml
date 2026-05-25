@@ -44,7 +44,7 @@
         <HBox styleClass="chat-input-area" spacing="10" alignment="CENTER">
             <TextField fx:id="tfInput" styleClass="chat-input" HBox.hgrow="ALWAYS"
                        promptText="Ketik pertanyaan Anda disini..." onAction="#handleSend"/>
-            <Button styleClass="btn-send" text="Kirim" onAction="#handleSend"/>
+            <Button styleClass="btn-send" text="➤" onAction="#handleSend"/>
         </HBox>
     </VBox>
 </HBox>

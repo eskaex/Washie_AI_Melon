@@ -38,7 +38,7 @@ public class PesananService {
         Pesanan p = opt.get();
 
         // Keamanan: Pastikan user hanya bisa membatalkan pesanannya sendiri
-        if (!p.getUser().getId().equals(currentUser.getId())) return "UNAUTHORIZED";
+        if (!p.getUser().getIdUser().equals(currentUser.getIdUser())) return "UNAUTHORIZED";
 
         // Aturan utama: Hanya bisa dibatalkan jika belum diproses
         if (p.getStatus() != Pesanan.Status.BELUM_DIPROSES) return "TOLAK";
