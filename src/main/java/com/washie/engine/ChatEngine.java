@@ -192,6 +192,11 @@ public class ChatEngine {
             case CLARIFICATION        -> handleClarification(raw, lower, session);
             case TANYA_SPEED_ADDON_GLOBAL -> handleSpeedAddonGlobal(raw, lower, session);
             case TANYA_DOWNGRADE      -> handleTanyaDowngrade(raw, lower, session);
+            case PILIH_ITEM_UBAH      -> handlePilihItemUbah(raw, lower, session);
+            case PILIH_ASPEK_UBAH     -> handlePilihAspekUbah(raw, lower, session);
+            case UBAH_KUANTITAS       -> handleUbahKuantitas(raw, lower, session);
+            case UBAH_KECEPATAN       -> handleUbahKecepatan(raw, lower, session);
+            case UBAH_ADDON           -> handleUbahAddon(raw, lower, session);
         };
     }
 
@@ -902,8 +907,161 @@ public class ChatEngine {
         if (has(lower,"ya","iya","yes","ok","oke","betul","benar","konfirmasi","setuju","pesan","lanjut"))
             return simpanPesanan(session);
         if (isBatal(lower)) { resetSemua(session); return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?"); }
-        if (has(lower,"ubah","ganti","edit","salah","ulang")) { resetSemua(session); return txt("Oke, mari ulangi dari awal."); }
-        return txt("Ketik ya → simpan  |  batal → batalkan  |  ubah → ulangi");
+        if (has(lower,"ubah","ganti","edit")) {
+            if (session.draftItems.size() == 1) {
+                session.editIndex = 0;
+                session.state = ConvState.PILIH_ASPEK_UBAH;
+                return promptAspekUbah(session);
+            }
+            session.state = ConvState.PILIH_ITEM_UBAH;
+            return promptPilihItemUbah(session);
+        }
+        if (has(lower,"ulang","salah semua")) { resetSemua(session); return txt("Oke, mari ulangi dari awal."); }
+
+        return txt("Ketik ya → simpan  |  batal → batalkan  |  ubah → edit pesanan");
+    }
+
+    // =========================================================================
+    //  STATE: UBAH / EDIT PESANAN
+    // =========================================================================
+    private BotResponse promptPilihItemUbah(ChatSession s) {
+        StringBuilder sb = new StringBuilder("Pilih nomor item yang ingin diubah:\n");
+        for (int i = 0; i < s.draftItems.size(); i++) {
+            sb.append(i + 1).append(". ").append(s.draftItems.get(i).layanan.getNamaLayanan()).append("\n");
+        }
+        sb.append("\nKetik angkanya (contoh: 1), atau batal untuk kembali.");
+        return txt(sb.toString());
+    }
+
+    private BotResponse handlePilihItemUbah(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        int idx = extractItem(lower); if (idx <= 0) idx = (int) extractBare(lower);
+        if (idx < 1 || idx > session.draftItems.size()) return txt("Nomor item tidak valid. Pilih dari 1 sampai " + session.draftItems.size());
+
+        session.editIndex = idx - 1;
+        session.state = ConvState.PILIH_ASPEK_UBAH;
+        return promptAspekUbah(session);
+    }
+
+    private BotResponse promptAspekUbah(ChatSession s) {
+        ItemDraft d = s.draftItems.get(s.editIndex);
+        return txt("Apa yang ingin diubah dari *" + d.layanan.getNamaLayanan() + "*?\n" +
+                "1. Kuantitas (" + (d.layanan.isPerKg() ? "Berat" : "Jumlah Item") + ")\n" +
+                "2. Kecepatan\n" +
+                "3. Add-on\n" +
+                "4. Hapus Item Ini\n\n" +
+                "Ketik angka 1-4, atau batal.");
+    }
+
+    private BotResponse handlePilihAspekUbah(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+
+        if (has(lower, "1", "kuantitas", "berat", "jumlah")) {
+            session.state = ConvState.UBAH_KUANTITAS;
+            return txt("Masukkan " + (d.layanan.isPerKg() ? "berat baru (kg):" : "jumlah item baru:"));
+        }
+        if (has(lower, "2", "kecepatan", "speed")) {
+            session.state = ConvState.UBAH_KECEPATAN;
+            return txt("Pilih kecepatan baru untuk " + d.layanan.getNamaLayanan() + ":\n- Standar\n- Express\n\nKetik standar atau express.");
+        }
+        if (has(lower, "3", "addon", "add-on", "tambahan")) {
+            session.state = ConvState.UBAH_ADDON;
+            return txt("Ketik add-on baru (ini akan menggantikan yang lama):\n" + buatOpsiAddon() + "Ketik nama add-on, atau 'tanpa add on' jika ingin dihapus.");
+        }
+        if (has(lower, "4", "hapus", "buang")) {
+            session.draftItems.remove(session.editIndex);
+            if (session.draftItems.isEmpty()) {
+                resetSemua(session);
+                return txt("Item telah dihapus. Karena tidak ada item tersisa, pesanan dibatalkan.");
+            }
+            session.state = ConvState.KONFIRMASI;
+            return tampilNota(session);
+        }
+        return txt("Pilihan tidak valid. Ketik angka 1-4.");
+    }
+
+    private BotResponse handleUbahKuantitas(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+
+        if (d.layanan.isPerKg()) {
+            double kg = extractKg(lower); if (kg <= 0) kg = extractBare(lower);
+            if (kg <= 0) return txt("Masukkan berat yang valid. Contoh: 2 kg");
+            String err = validasiBerat(kg); if (err != null) return txt(err);
+            d.beratKg = kg;
+        } else {
+            int item = extractItem(lower); if (item <= 0) item = (int) extractBare(lower);
+            if (item <= 0) return txt("Masukkan jumlah yang valid. Contoh: 3");
+            String err = validasiItem(item); if (err != null) return txt(err);
+            d.jumlahItem = item;
+        }
+
+        recalcDraft(d);
+        session.state = ConvState.KONFIRMASI;
+        return tampilNota(session);
+    }
+
+    private BotResponse handleUbahKecepatan(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+
+        if (PAT_EXPRESS.matcher(lower).find()) {
+            if (!d.layanan.isBisaExpress()) return txt("Maaf, layanan ini tidak tersedia untuk Express. Ketik standar atau batal.");
+            d.kecepatan = "EXPRESS";
+            d.expressTotal = d.layanan.isPerKg() ? getExpressRate(d.layanan) * Math.max(d.beratKg, 1) : getExpressRate(d.layanan);
+        } else if (PAT_STANDAR.matcher(lower).find()) {
+            d.kecepatan = "STANDAR";
+            d.expressTotal = 0;
+        } else {
+            return txt("Pilihan tidak dikenali. Ketik standar atau express.");
+        }
+
+        recalcDraft(d);
+        session.state = ConvState.KONFIRMASI;
+        return tampilNota(session);
+    }
+
+    private BotResponse handleUbahAddon(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+        List<Layanan> addonsDb = layananService.getAddonAktif();
+
+        if (PAT_TANPA_ADDON.matcher(lower).find()) {
+            d.addonNama = "";
+            d.addonTotal = 0;
+        } else {
+            List<String> namaBaru = new ArrayList<>();
+            double totalBaru = 0;
+
+            if (PAT_SEMUA_ADDON.matcher(lower).find()) {
+                addonsDb.forEach(a -> { namaBaru.add(a.getNamaLayanan()); });
+                totalBaru = addonsDb.stream().mapToDouble(Layanan::getHarga).sum();
+            } else {
+                for (Layanan a : addonsDb) {
+                    if (addonDipilih(a.getNamaLayanan().toLowerCase(), lower)) {
+                        namaBaru.add(a.getNamaLayanan());
+                        totalBaru += a.getHarga();
+                    }
+                }
+            }
+            if (namaBaru.isEmpty()) return txt("Add-on tidak dikenali. Ketik ulang atau ketik 'tanpa add on'.");
+            d.addonNama = String.join(", ", namaBaru);
+            d.addonTotal = totalBaru;
+        }
+
+        recalcDraft(d);
+        session.state = ConvState.KONFIRMASI;
+        return tampilNota(session);
+    }
+
+    private void recalcDraft(ItemDraft d) {
+        d.subtotalLayanan = d.layanan.isPerKg() ? d.layanan.getHarga() * d.beratKg : d.layanan.getHarga() * d.jumlahItem;
+        // Update harga express dinamis (jika dihitung per-kg)
+        if ("EXPRESS".equals(d.kecepatan) && d.layanan.isPerKg()) {
+            d.expressTotal = getExpressRate(d.layanan) * Math.max(d.beratKg, 1);
+        }
+        d.totalItem = d.subtotalLayanan + d.expressTotal + d.addonTotal;
     }
 
     // =========================================================================
