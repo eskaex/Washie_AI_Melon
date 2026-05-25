@@ -2,6 +2,7 @@ package com.washie.engine;
 
 import com.washie.model.InfoEntity;
 import com.washie.model.Layanan;
+import com.washie.model.Pesanan;
 import com.washie.service.InfoService;
 import com.washie.service.LayananService;
 import com.washie.service.PesananService;
@@ -193,7 +194,7 @@ public class ChatEngine {
         String kode = cariKode(raw);
         if (kode != null) return cekStatus(kode);
         if (has(lower,"status pesanan","cek pesanan","lacak")) return txt("Masukkan kode pesanan.\nContoh: cek WS-001");
-
+        if (has(lower, "riwayat", "pesanan saya", "history")) return cekRiwayat();
         if (has(lower,"halo","hai","hello","hi ","selamat pagi","selamat siang","selamat sore","selamat malam","hei","assalamu","permisi"))
             return salam();
 
@@ -1100,6 +1101,37 @@ public class ChatEngine {
     private BotResponse respDaftarLayanan() { return respTanyaLayanan(); }
     private BotResponse cekStatus(String kode) {
         return pesananService.getByKode(kode).map(p -> txt("Status " + p.getKodePesanan() + ":\nNama: " + p.getUser().getNamaLengkap() + "\nLayanan: " + (p.getLayanan() != null ? p.getLayanan().getNamaLayanan() : "-") + (p.getItems().size() > 1 ? " +" + (p.getItems().size()-1) + " lagi" : "") + "\nTotal: Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\nStatus: " + switch(p.getStatus()){case DIPROSES -> "Sedang Diproses"; case SELESAI -> "Selesai - siap diambil!"; case DIAMBIL -> "Sudah Diambil";})).orElse(txt("Pesanan " + kode + " tidak ditemukan."));
+    }
+    private BotResponse cekRiwayat() {
+        List<Pesanan> riwayat = pesananService.getRiwayatPesananCurrentUser();
+
+        if (riwayat.isEmpty()) {
+            return txt("Kamu belum memiliki riwayat pesanan. Yuk buat pesanan pertamamu!");
+        }
+
+        StringBuilder sb = new StringBuilder("Riwayat Pesanan Kamu:\n\n");
+
+        int limit = Math.min(riwayat.size(), 5);
+        for (int i = 0; i < limit; i++) {
+            Pesanan p = riwayat.get(i);
+            String status = switch(p.getStatus()) {
+                case DIPROSES -> "⏳ Diproses";
+                case SELESAI -> "✅ Selesai";
+                case DIAMBIL -> "🛍️ Diambil";
+                default -> p.getStatus().name();
+            };
+
+            sb.append("- ").append(p.getKodePesanan())
+                    .append(" | Rp").append(fmt(p.getTotalHarga()))
+                    .append(" | ").append(status)
+                    .append("\n");
+        }
+
+        if (riwayat.size() > 5) {
+            sb.append("\n(Cek menu dashboard untuk riwayat selengkapnya)");
+        }
+
+        return txt(sb.toString());
     }
     private BotResponse respJam() {
         return txt("Jam Operasional:\nSenin-Jumat  : " + infoService.getNilai("JAM_OPERASIONAL","senin_jumat").orElse("08.00-21.00") + "\nSabtu-Minggu : " + infoService.getNilai("JAM_OPERASIONAL","sabtu_minggu").orElse("09.00-19.00") + "\nHari Libur   : " + infoService.getNilai("JAM_OPERASIONAL","hari_libur").orElse("Tutup"));

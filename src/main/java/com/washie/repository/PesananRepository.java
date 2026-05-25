@@ -13,6 +13,7 @@ import java.util.Optional;
 @Repository
 public interface PesananRepository extends JpaRepository<Pesanan, Long> {
     List<Pesanan> findByUser(User user);
+    List<Pesanan> findByUserOrderByIdDesc(User user);
     Optional<Pesanan> findByKodePesanan(String kodePesanan);
     List<Pesanan> findByStatus(Pesanan.Status status);
     List<Pesanan> findByKodePesananContainingIgnoreCaseOrUserNamaLengkapContainingIgnoreCase(

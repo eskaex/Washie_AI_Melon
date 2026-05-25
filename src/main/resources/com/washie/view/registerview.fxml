@@ -25,7 +25,7 @@
 
             <Region prefHeight="16" />
 
-            <Label styleClass="field-label" text="NAMA LENGKAP" />
+            <Label styleClass="field-label" text="USERNAME" />
             <TextField fx:id="tfNama" maxWidth="420" promptText="Masukkan nama lengkap" styleClass="field-input" />
 
             <Region prefHeight="6" />
