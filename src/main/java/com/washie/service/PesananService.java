@@ -97,6 +97,14 @@ public class PesananService {
         return kode;
     }
 
+    public List<Pesanan> getRiwayatPesananCurrentUser() {
+        User currentUser = sessionManager.getCurrentUser();
+        if (currentUser == null) {
+            return List.of(); // Kembalikan list kosong jika belum login
+        }
+        return pesananRepository.findByUserOrderByIdDesc(currentUser);
+    }
+
     public List<Pesanan> getPesananByUser(User user) {
         return pesananRepository.findByUser(user);
     }
