@@ -38,7 +38,7 @@ public class PesananService {
         Pesanan p = opt.get();
 
         // Keamanan: Pastikan user hanya bisa membatalkan pesanannya sendiri
-        if (!p.getUser().getId().equals(currentUser.getId())) return "UNAUTHORIZED";
+        if (!p.getUser().getIdUser().equals(currentUser.getIdUser())) return "UNAUTHORIZED";
 
         // Aturan utama: Hanya bisa dibatalkan jika belum diproses
         if (p.getStatus() != Pesanan.Status.BELUM_DIPROSES) return "TOLAK";
@@ -83,7 +83,9 @@ public class PesananService {
         pesanan.setUser(currentUser);
         pesanan.setTanggalMasuk(LocalDate.now());
         pesanan.setStatus(Pesanan.Status.BELUM_DIPROSES);
-        pesanan.setLayanan(drafts.get(0).layanan); // layanan utama (item pertama)
+        pesanan.setLayanan(drafts.get(0).layanan);
+
+        java.util.List<PesananItem> listPenampungItem = new java.util.ArrayList<>();
 
         double grandTotal = 0;
         for (ItemDraft d : drafts) {
@@ -94,16 +96,19 @@ public class PesananService {
             item.setJumlahItem(!d.layanan.isPerKg() && d.jumlahItem > 0 ? d.jumlahItem : null);
             item.setKecepatan(d.kecepatan);
             item.setExpressTotal(d.expressTotal > 0 ? d.expressTotal : null);
-            item.setAddonNama(d.addonNama.isBlank() ? null : d.addonNama);
+            item.setAddonNama((d.addonNama == null || d.addonNama.isBlank()) ? null : d.addonNama);
             item.setAddonTotal(d.addonTotal > 0 ? d.addonTotal : null);
             item.setSubtotalLayanan(d.subtotalLayanan);
             item.setTotalItem(d.totalItem);
-            pesanan.getItems().add(item);
+
+            listPenampungItem.add(item);
             grandTotal += d.totalItem;
         }
         pesanan.setTotalHarga(grandTotal);
 
         Pesanan saved = pesananRepository.save(pesanan);
+        itemRepository.saveAll(listPenampungItem);
+
         return saved.getKodePesanan();
     }
 

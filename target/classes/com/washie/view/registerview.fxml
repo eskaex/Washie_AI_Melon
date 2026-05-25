@@ -1,69 +1,76 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <?import javafx.scene.control.*?>
-<?import javafx.scene.image.*?>
 <?import javafx.scene.layout.*?>
 
-<HBox prefHeight="750" prefWidth="1100" stylesheets="@../../../css/styles.css" xmlns="http://javafx.com/javafx/17.0.12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.washie.controller.RegisterController">
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.image.Image?>
+<HBox xmlns:fx="http://javafx.com/fxml"
+      fx:controller="com.washie.controller.RegisterController"
+      stylesheets="@/css/styles.css"
+      prefWidth="1100" prefHeight="750">
 
     <!-- LEFT PANEL -->
-    <VBox alignment="CENTER" prefWidth="500" spacing="20" styleClass="left-panel">
-      <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
-         <image>
-            <Image url="@../../../image/washie%20logo%20kuning.png" />
-         </image>
-      </ImageView>
-        <Label alignment="CENTER" maxWidth="360" styleClass="left-tagline" text="Pembuatan akun" wrapText="true" />
-        <Label alignment="CENTER" maxWidth="360" styleClass="left-sub" text="Daftarkan akun kamu untuk mulai menggunakan chatbot Washie!" wrapText="true" />
+    <VBox styleClass="left-panel" prefWidth="500" alignment="CENTER" spacing="20">
+        <ImageView fitHeight="150.0" fitWidth="200.0" pickOnBounds="true" preserveRatio="true">
+            <image>
+                <Image url="@/image/washie logo kuning.png" />
+            </image>
+        </ImageView>
+        <Label styleClass="logo-text" text="washie"/>
+        <Label styleClass="left-tagline" text="Pembuatan akun" wrapText="true" alignment="CENTER" maxWidth="340"/>
+        <Label styleClass="left-sub" text="Daftarkan akun kamu untuk mulai menggunakan chatbot Washie!"
+               wrapText="true" alignment="CENTER" maxWidth="320"/>
     </VBox>
 
     <!-- RIGHT PANEL -->
-    <VBox alignment="CENTER" spacing="0" styleClass="right-panel" HBox.hgrow="ALWAYS">
-        <VBox alignment="CENTER_LEFT" maxWidth="420" spacing="10">
-            <Label styleClass="form-title" text="Buat Akun Baru" />
-            <Label styleClass="form-sub" text="Lengkapi data di bawah ini untuk mendaftar." />
+    <VBox styleClass="right-panel" HBox.hgrow="ALWAYS" alignment="CENTER" spacing="0">
+        <VBox maxWidth="420" spacing="10" alignment="CENTER_LEFT">
+            <Label styleClass="form-title" text="Buat Akun Baru"/>
+            <Label styleClass="form-sub" text="Lengkapi data di bawah ini untuk mendaftar."/>
 
-            <Region prefHeight="16" />
+            <Region prefHeight="16"/>
 
-            <Label styleClass="field-label" text="NAMA LENGKAP" />
-            <TextField fx:id="tfNama" maxWidth="420" promptText="Masukkan nama lengkap" styleClass="field-input" />
+            <Label styleClass="field-label" text="USERNAME"/>
+            <TextField fx:id="tfNama" styleClass="field-input" promptText="Masukkan username anda" maxWidth="420"/>
 
-            <Region prefHeight="6" />
+            <Region prefHeight="6"/>
 
-            <HBox maxWidth="420" spacing="12">
+            <HBox spacing="12" maxWidth="420">
                 <VBox spacing="6" HBox.hgrow="ALWAYS">
-                    <Label styleClass="field-label" text="NO. TELEPON" />
-                    <TextField fx:id="tfNoTelp" promptText="08xx-xxxx-xxxx" styleClass="field-input" />
+                    <Label styleClass="field-label" text="NO. TELEPON"/>
+                    <TextField fx:id="tfNoTelp" styleClass="field-input" promptText="08xx-xxxx-xxxx"/>
                 </VBox>
                 <VBox spacing="6" HBox.hgrow="ALWAYS">
-                    <Label styleClass="field-label" text="PASSWORD" />
+                    <Label styleClass="field-label" text="PASSWORD"/>
                     <StackPane>
-                        <PasswordField fx:id="pfPassword" promptText="Min. 6 karakter" styleClass="field-input" />
-                        <TextField fx:id="tfPasswordVisible" promptText="Min. 6 karakter" styleClass="field-input" />
-                        <Button fx:id="btnTogglePass" onAction="#handleTogglePass" styleClass="btn-toggle-pass" text="🙈" StackPane.alignment="CENTER_RIGHT" />
+                        <PasswordField fx:id="pfPassword" styleClass="field-input" promptText="Min. 6 karakter"/>
+                        <TextField fx:id="tfPasswordVisible" styleClass="field-input" promptText="Min. 6 karakter"/>
+                        <Button fx:id="btnTogglePass" text="🙈" styleClass="btn-toggle-pass"
+                                onAction="#handleTogglePass" StackPane.alignment="CENTER_RIGHT"/>
                     </StackPane>
                 </VBox>
             </HBox>
 
-            <Region prefHeight="6" />
+            <Region prefHeight="6"/>
 
-            <Label styleClass="field-label" text="KONFIRMASI PASSWORD" />
+            <Label styleClass="field-label" text="KONFIRMASI PASSWORD"/>
             <StackPane maxWidth="420">
-                <PasswordField fx:id="pfKonfirmasi" promptText="Ulangi password" styleClass="field-input" />
-                <TextField fx:id="tfKonfirmasiVisible" promptText="Ulangi password" styleClass="field-input" />
-                <Button fx:id="btnToggleKonfirmasi" onAction="#handleToggleKonfirmasi" styleClass="btn-toggle-pass" text="🙈" StackPane.alignment="CENTER_RIGHT" />
+                <PasswordField fx:id="pfKonfirmasi" styleClass="field-input" promptText="Ulangi password"/>
+                <TextField fx:id="tfKonfirmasiVisible" styleClass="field-input" promptText="Ulangi password"/>
+                <Button fx:id="btnToggleKonfirmasi" text="🙈" styleClass="btn-toggle-pass"
+                        onAction="#handleToggleKonfirmasi" StackPane.alignment="CENTER_RIGHT"/>
             </StackPane>
 
-            <Region prefHeight="4" />
-            <Label fx:id="lblError" maxWidth="420" styleClass="label-error" text="" wrapText="true" />
-            <Label fx:id="lblSuccess" maxWidth="420" styleClass="label-success" text="" wrapText="true" />
-            <Region prefHeight="8" />
+            <Region prefHeight="4"/>
+            <Label fx:id="lblError" styleClass="label-error" text="" wrapText="true" maxWidth="420"/>
+            <Label fx:id="lblSuccess" styleClass="label-success" text="" wrapText="true" maxWidth="420"/>
+            <Region prefHeight="8"/>
 
-            <Button maxWidth="420" onAction="#handleDaftar" prefHeight="46" styleClass="btn-primary" text="Daftar" />
+            <Button text="Daftar" styleClass="btn-primary" maxWidth="420" prefHeight="46" onAction="#handleDaftar"/>
 
-            <HBox alignment="CENTER" maxWidth="420" spacing="4">
-                <Label styleClass="form-sub" text="Sudah punya akun?" />
-                <Hyperlink fx:id="hlLogin" onAction="#handleGoLogin" styleClass="link-action" text="Masuk di sini" />
+            <HBox alignment="CENTER" spacing="4" maxWidth="420">
+                <Label text="Sudah punya akun?" styleClass="form-sub"/>
+                <Hyperlink fx:id="hlLogin" text="Masuk di sini" styleClass="link-action" onAction="#handleGoLogin"/>
             </HBox>
         </VBox>
     </VBox>

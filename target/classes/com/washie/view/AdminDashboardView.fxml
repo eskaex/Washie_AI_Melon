@@ -73,12 +73,13 @@
             <Label text="Daftar Pesanan Terkini" styleClass="table-card-title"/>
             <TableView fx:id="tablePesanan" VBox.vgrow="ALWAYS" styleClass="washie-table">
                 <columns>
-                    <TableColumn fx:id="colId" text="ID PESANAN" prefWidth="120"/>
-                    <TableColumn fx:id="colPengguna" text="PENGGUNA" prefWidth="150"/>
-                    <TableColumn fx:id="colLayanan" text="LAYANAN" prefWidth="160"/>
-                    <TableColumn fx:id="colTanggal" text="TGL MASUK" prefWidth="120"/>
-                    <TableColumn fx:id="colStatus" text="STATUS" prefWidth="110"/>
-                    <TableColumn fx:id="colAksi" text="AKSI" prefWidth="80"/>
+                    <TableColumn fx:id="colId"       text="ID PESANAN" prefWidth="100"/>
+                    <TableColumn fx:id="colPengguna"  text="PENGGUNA"   prefWidth="120"/>
+                    <TableColumn fx:id="colLayanan"   text="LAYANAN"    prefWidth="160"/>
+                    <TableColumn fx:id="colTanggal"   text="TGL MASUK"  prefWidth="110"/>
+                    <TableColumn fx:id="colTotal"     text="TOTAL"      prefWidth="100"/>
+                    <TableColumn fx:id="colStatus"    text="STATUS"     prefWidth="100"/>
+                    <TableColumn fx:id="colAksi"      text="AKSI"       prefWidth="170"/>
                 </columns>
             </TableView>
         </VBox>

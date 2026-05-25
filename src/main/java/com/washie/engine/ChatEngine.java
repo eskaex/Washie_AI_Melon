@@ -945,7 +945,7 @@ public class ChatEngine {
 
     private BotResponse promptAspekUbah(ChatSession s) {
         ItemDraft d = s.draftItems.get(s.editIndex);
-        return txt("Apa yang ingin diubah dari *" + d.layanan.getNamaLayanan() + "*?\n" +
+        return txt("Apa yang ingin diubah dari " + d.layanan.getNamaLayanan() + "?\n" +
                 "1. Kuantitas (" + (d.layanan.isPerKg() ? "Berat" : "Jumlah Item") + ")\n" +
                 "2. Kecepatan\n" +
                 "3. Add-on\n" +
