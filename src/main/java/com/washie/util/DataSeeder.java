@@ -64,7 +64,7 @@ public class DataSeeder implements CommandLineRunner {
             // constructor: (nama, harga) → tipe otomatis ADDON
             layananRepository.save(new Layanan("Pewangi Premium",              3000d));
             layananRepository.save(new Layanan("Extra Softener",               2000d));
-            layananRepository.save(new Layanan("Anti-Septik",                  2000d));
+            layananRepository.save(new Layanan("Anti Septik",                  2000d));
         }
     }
 
