@@ -76,6 +76,9 @@ public class ChatEngine {
         public int clarificationIndex = 0;
 
         public Set<String> downgradedLayanan = new HashSet<>();
+
+        // Untuk melacak item nomor berapa yang sedang diedit
+        public int editIndex = -1;
     }
 
     public enum ConvState {
@@ -88,7 +91,12 @@ public class ChatEngine {
         KONFIRMASI,
         CLARIFICATION,
         TANYA_SPEED_ADDON_GLOBAL, // Mode B: tanya kecepatan+addon untuk semua item
-        TANYA_DOWNGRADE
+        TANYA_DOWNGRADE,
+        PILIH_ITEM_UBAH,
+        PILIH_ASPEK_UBAH,
+        UBAH_KUANTITAS,
+        UBAH_KECEPATAN,
+        UBAH_ADDON
     }
 
     // =========================================================================
@@ -184,6 +192,11 @@ public class ChatEngine {
             case CLARIFICATION        -> handleClarification(raw, lower, session);
             case TANYA_SPEED_ADDON_GLOBAL -> handleSpeedAddonGlobal(raw, lower, session);
             case TANYA_DOWNGRADE      -> handleTanyaDowngrade(raw, lower, session);
+            case PILIH_ITEM_UBAH      -> handlePilihItemUbah(raw, lower, session);
+            case PILIH_ASPEK_UBAH     -> handlePilihAspekUbah(raw, lower, session);
+            case UBAH_KUANTITAS       -> handleUbahKuantitas(raw, lower, session);
+            case UBAH_KECEPATAN       -> handleUbahKecepatan(raw, lower, session);
+            case UBAH_ADDON           -> handleUbahAddon(raw, lower, session);
         };
     }
 
@@ -192,6 +205,9 @@ public class ChatEngine {
     // =========================================================================
     private BotResponse handleIdle(String raw, String lower, ChatSession session) {
         String kode = cariKode(raw);
+        if (has(lower, "batal", "batalkan", "cancel") && (has(lower, "pesan", "order", "ws-"))) {
+            return handleBatalkanPesanan(raw, lower);
+        }
         if (kode != null) return cekStatus(kode);
         if (has(lower,"status pesanan","cek pesanan","lacak")) return txt("Masukkan kode pesanan.\nContoh: cek WS-001");
         if (has(lower, "riwayat", "pesanan saya", "history")) return cekRiwayat();
@@ -891,8 +907,161 @@ public class ChatEngine {
         if (has(lower,"ya","iya","yes","ok","oke","betul","benar","konfirmasi","setuju","pesan","lanjut"))
             return simpanPesanan(session);
         if (isBatal(lower)) { resetSemua(session); return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?"); }
-        if (has(lower,"ubah","ganti","edit","salah","ulang")) { resetSemua(session); return txt("Oke, mari ulangi dari awal."); }
-        return txt("Ketik ya → simpan  |  batal → batalkan  |  ubah → ulangi");
+        if (has(lower,"ubah","ganti","edit")) {
+            if (session.draftItems.size() == 1) {
+                session.editIndex = 0;
+                session.state = ConvState.PILIH_ASPEK_UBAH;
+                return promptAspekUbah(session);
+            }
+            session.state = ConvState.PILIH_ITEM_UBAH;
+            return promptPilihItemUbah(session);
+        }
+        if (has(lower,"ulang","salah semua")) { resetSemua(session); return txt("Oke, mari ulangi dari awal."); }
+
+        return txt("Ketik ya → simpan  |  batal → batalkan  |  ubah → edit pesanan");
+    }
+
+    // =========================================================================
+    //  STATE: UBAH / EDIT PESANAN
+    // =========================================================================
+    private BotResponse promptPilihItemUbah(ChatSession s) {
+        StringBuilder sb = new StringBuilder("Pilih nomor item yang ingin diubah:\n");
+        for (int i = 0; i < s.draftItems.size(); i++) {
+            sb.append(i + 1).append(". ").append(s.draftItems.get(i).layanan.getNamaLayanan()).append("\n");
+        }
+        sb.append("\nKetik angkanya (contoh: 1), atau batal untuk kembali.");
+        return txt(sb.toString());
+    }
+
+    private BotResponse handlePilihItemUbah(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        int idx = extractItem(lower); if (idx <= 0) idx = (int) extractBare(lower);
+        if (idx < 1 || idx > session.draftItems.size()) return txt("Nomor item tidak valid. Pilih dari 1 sampai " + session.draftItems.size());
+
+        session.editIndex = idx - 1;
+        session.state = ConvState.PILIH_ASPEK_UBAH;
+        return promptAspekUbah(session);
+    }
+
+    private BotResponse promptAspekUbah(ChatSession s) {
+        ItemDraft d = s.draftItems.get(s.editIndex);
+        return txt("Apa yang ingin diubah dari *" + d.layanan.getNamaLayanan() + "*?\n" +
+                "1. Kuantitas (" + (d.layanan.isPerKg() ? "Berat" : "Jumlah Item") + ")\n" +
+                "2. Kecepatan\n" +
+                "3. Add-on\n" +
+                "4. Hapus Item Ini\n\n" +
+                "Ketik angka 1-4, atau batal.");
+    }
+
+    private BotResponse handlePilihAspekUbah(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+
+        if (has(lower, "1", "kuantitas", "berat", "jumlah")) {
+            session.state = ConvState.UBAH_KUANTITAS;
+            return txt("Masukkan " + (d.layanan.isPerKg() ? "berat baru (kg):" : "jumlah item baru:"));
+        }
+        if (has(lower, "2", "kecepatan", "speed")) {
+            session.state = ConvState.UBAH_KECEPATAN;
+            return txt("Pilih kecepatan baru untuk " + d.layanan.getNamaLayanan() + ":\n- Standar\n- Express\n\nKetik standar atau express.");
+        }
+        if (has(lower, "3", "addon", "add-on", "tambahan")) {
+            session.state = ConvState.UBAH_ADDON;
+            return txt("Ketik add-on baru (ini akan menggantikan yang lama):\n" + buatOpsiAddon() + "Ketik nama add-on, atau 'tanpa add on' jika ingin dihapus.");
+        }
+        if (has(lower, "4", "hapus", "buang")) {
+            session.draftItems.remove(session.editIndex);
+            if (session.draftItems.isEmpty()) {
+                resetSemua(session);
+                return txt("Item telah dihapus. Karena tidak ada item tersisa, pesanan dibatalkan.");
+            }
+            session.state = ConvState.KONFIRMASI;
+            return tampilNota(session);
+        }
+        return txt("Pilihan tidak valid. Ketik angka 1-4.");
+    }
+
+    private BotResponse handleUbahKuantitas(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+
+        if (d.layanan.isPerKg()) {
+            double kg = extractKg(lower); if (kg <= 0) kg = extractBare(lower);
+            if (kg <= 0) return txt("Masukkan berat yang valid. Contoh: 2 kg");
+            String err = validasiBerat(kg); if (err != null) return txt(err);
+            d.beratKg = kg;
+        } else {
+            int item = extractItem(lower); if (item <= 0) item = (int) extractBare(lower);
+            if (item <= 0) return txt("Masukkan jumlah yang valid. Contoh: 3");
+            String err = validasiItem(item); if (err != null) return txt(err);
+            d.jumlahItem = item;
+        }
+
+        recalcDraft(d);
+        session.state = ConvState.KONFIRMASI;
+        return tampilNota(session);
+    }
+
+    private BotResponse handleUbahKecepatan(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+
+        if (PAT_EXPRESS.matcher(lower).find()) {
+            if (!d.layanan.isBisaExpress()) return txt("Maaf, layanan ini tidak tersedia untuk Express. Ketik standar atau batal.");
+            d.kecepatan = "EXPRESS";
+            d.expressTotal = d.layanan.isPerKg() ? getExpressRate(d.layanan) * Math.max(d.beratKg, 1) : getExpressRate(d.layanan);
+        } else if (PAT_STANDAR.matcher(lower).find()) {
+            d.kecepatan = "STANDAR";
+            d.expressTotal = 0;
+        } else {
+            return txt("Pilihan tidak dikenali. Ketik standar atau express.");
+        }
+
+        recalcDraft(d);
+        session.state = ConvState.KONFIRMASI;
+        return tampilNota(session);
+    }
+
+    private BotResponse handleUbahAddon(String raw, String lower, ChatSession session) {
+        if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
+        ItemDraft d = session.draftItems.get(session.editIndex);
+        List<Layanan> addonsDb = layananService.getAddonAktif();
+
+        if (PAT_TANPA_ADDON.matcher(lower).find()) {
+            d.addonNama = "";
+            d.addonTotal = 0;
+        } else {
+            List<String> namaBaru = new ArrayList<>();
+            double totalBaru = 0;
+
+            if (PAT_SEMUA_ADDON.matcher(lower).find()) {
+                addonsDb.forEach(a -> { namaBaru.add(a.getNamaLayanan()); });
+                totalBaru = addonsDb.stream().mapToDouble(Layanan::getHarga).sum();
+            } else {
+                for (Layanan a : addonsDb) {
+                    if (addonDipilih(a.getNamaLayanan().toLowerCase(), lower)) {
+                        namaBaru.add(a.getNamaLayanan());
+                        totalBaru += a.getHarga();
+                    }
+                }
+            }
+            if (namaBaru.isEmpty()) return txt("Add-on tidak dikenali. Ketik ulang atau ketik 'tanpa add on'.");
+            d.addonNama = String.join(", ", namaBaru);
+            d.addonTotal = totalBaru;
+        }
+
+        recalcDraft(d);
+        session.state = ConvState.KONFIRMASI;
+        return tampilNota(session);
+    }
+
+    private void recalcDraft(ItemDraft d) {
+        d.subtotalLayanan = d.layanan.isPerKg() ? d.layanan.getHarga() * d.beratKg : d.layanan.getHarga() * d.jumlahItem;
+        // Update harga express dinamis (jika dihitung per-kg)
+        if ("EXPRESS".equals(d.kecepatan) && d.layanan.isPerKg()) {
+            d.expressTotal = getExpressRate(d.layanan) * Math.max(d.beratKg, 1);
+        }
+        d.totalItem = d.subtotalLayanan + d.expressTotal + d.addonTotal;
     }
 
     // =========================================================================
@@ -1100,24 +1269,41 @@ public class ChatEngine {
 
     private BotResponse respDaftarLayanan() { return respTanyaLayanan(); }
     private BotResponse cekStatus(String kode) {
-        return pesananService.getByKode(kode).map(p -> txt("Status " + p.getKodePesanan() + ":\nNama: " + p.getUser().getNamaLengkap() + "\nLayanan: " + (p.getLayanan() != null ? p.getLayanan().getNamaLayanan() : "-") + (p.getItems().size() > 1 ? " +" + (p.getItems().size()-1) + " lagi" : "") + "\nTotal: Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\nStatus: " + switch(p.getStatus()){case DIPROSES -> "Sedang Diproses"; case SELESAI -> "Selesai - siap diambil!"; case DIAMBIL -> "Sudah Diambil";})).orElse(txt("Pesanan " + kode + " tidak ditemukan."));
+        return pesananService.getByKode(kode).map(p -> txt("Status " + p.getKodePesanan() + ":\nNama: " + p.getUser().getNamaLengkap() + "\nLayanan: " + (p.getLayanan() != null ? p.getLayanan().getNamaLayanan() : "-") + (p.getItems().size() > 1 ? " +" + (p.getItems().size()-1) + " lagi" : "") + "\nTotal: Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\nStatus: " + switch(p.getStatus()){case BELUM_DIPROSES -> "📥 Belum Diproses (Menunggu Admin)"; case DIPROSES -> "Sedang Diproses"; case SELESAI -> "Selesai - siap diambil!"; case DIAMBIL -> "Sudah Diambil"; case DIBATALKAN -> "❌ Dibatalkan";})).orElse(txt("Pesanan " + kode + " tidak ditemukan."));
     }
+
+    private BotResponse handleBatalkanPesanan(String raw, String lower){
+        String kode = cariKode(raw); // Menggunakan method cariKode yang sudah kamu punya
+
+        if (kode == null) {
+            return txt("Masukkan kode pesanan yang ingin dibatalkan.\nContoh: batalkan WS-001");
+        }
+        String hasil = pesananService.batalkanPesananUser(kode);
+        return switch (hasil) {
+            case "NOT_FOUND" -> txt("Pesanan " + kode + " tidak ditemukan.");
+            case "UNAUTHORIZED" -> txt("Kamu tidak bisa membatalkan pesanan milik akun lain.");
+            case "TOLAK" -> txt("Maaf, pesanan " + kode + " sudah mulai diproses (atau sudah selesai) sehingga tidak bisa dibatalkan.");
+            case "SUKSES" -> txt("Sip! Pesanan " + kode + " berhasil dibatalkan.");
+            default -> txt("Terjadi kesalahan sistem. Silakan hubungi admin.");
+        };
+    }
+
     private BotResponse cekRiwayat() {
         List<Pesanan> riwayat = pesananService.getRiwayatPesananCurrentUser();
 
         if (riwayat.isEmpty()) {
             return txt("Kamu belum memiliki riwayat pesanan. Yuk buat pesanan pertamamu!");
         }
-
         StringBuilder sb = new StringBuilder("Riwayat Pesanan Kamu:\n\n");
-
         int limit = Math.min(riwayat.size(), 5);
         for (int i = 0; i < limit; i++) {
             Pesanan p = riwayat.get(i);
             String status = switch(p.getStatus()) {
+                case BELUM_DIPROSES -> "📥 Belum Diproses (Menunggu Admin)";
                 case DIPROSES -> "⏳ Diproses";
                 case SELESAI -> "✅ Selesai";
                 case DIAMBIL -> "🛍️ Diambil";
+                case DIBATALKAN -> "❌ Dibatalkan";
                 default -> p.getStatus().name();
             };
 
@@ -1360,7 +1546,7 @@ public class ChatEngine {
     private String fmt(double v) { return v == Math.floor(v) ? String.format("%.0f", v) : String.format("%.1f", v); }
 
     private void resetItem(ChatSession s) { s.layanan=null; s.beratKg=0; s.jumlahItem=0; s.kecepatan=null; s.expressTotal=0; s.addonNama.clear(); s.addonHarga.clear(); }
-    private void resetSemua(ChatSession s) { resetItem(s); s.draftItems.clear(); s.pendingSpeedAddon.clear(); s.pendingClarification.clear(); s.clarificationIndex=0; s.downgradedLayanan.clear(); s.state=ConvState.IDLE; }
+    private void resetSemua(ChatSession s) { resetItem(s); s.draftItems.clear(); s.pendingSpeedAddon.clear(); s.pendingClarification.clear(); s.clarificationIndex=0; s.downgradedLayanan.clear(); s.state=ConvState.IDLE; s.editIndex = -1;}
 
     private static BotResponse txt(String msg) { return new BotResponse(msg, ResponseType.TEXT, null); }
     public enum ResponseType { TEXT, LAYANAN, NOTA }

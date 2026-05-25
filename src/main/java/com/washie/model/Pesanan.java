@@ -67,5 +67,11 @@ public class Pesanan {
     public LocalDateTime getUpdatedAt()     { return updatedAt; }
     public void setUpdatedAt(LocalDateTime v){ this.updatedAt = v; }
 
-    public enum Status { DIPROSES, SELESAI, DIAMBIL }
+    public enum Status {
+        BELUM_DIPROSES,  // Baru masuk
+        DIPROSES,        // Sedang dicuci
+        SELESAI,         // Selesai, siap diambil
+        DIAMBIL,         // Sudah diambil user
+        DIBATALKAN       // Dibatalkan oleh user/admin
+    }
 }
