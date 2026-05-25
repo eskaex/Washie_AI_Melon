@@ -100,9 +100,9 @@ public class PesananService {
     public List<Pesanan> getRiwayatPesananCurrentUser() {
         User currentUser = sessionManager.getCurrentUser();
         if (currentUser == null) {
-            return List.of(); // Kembalikan list kosong jika belum login
+            return List.of();
         }
-        return pesananRepository.findByUserOrderByIdDesc(currentUser);
+        return pesananRepository.findByUserOrderByKodePesananDesc(currentUser);
     }
 
     public List<Pesanan> getPesananByUser(User user) {
