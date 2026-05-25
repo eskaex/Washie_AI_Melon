@@ -651,6 +651,11 @@ public class ChatEngine {
         if (order.layanan == null) return order;
 
         // 2. Kuantitas + validasi negatif
+        String errSatuan = cekSatuanInvalid(segLow, order.layanan.isPerKg());
+        if (errSatuan != null) {
+            order.errorMsg = errSatuan;
+            return order;
+        }
         if (order.layanan.isPerKg()) {
             if (PAT_NEG.matcher(segLow).find()) { order.errorMsg = "Berat tidak boleh negatif."; return order; }
             double kg = extractKg(segLow);
@@ -748,6 +753,11 @@ public class ChatEngine {
         if (isBatal(lower)) { resetItem(session); return txt("Item dibatalkan."); }
         if (PAT_NEG.matcher(lower).find()) return txt("Berat tidak boleh negatif.\nMasukkan berat yang valid (min " + fmt(MIN_BERAT_KG) + " kg, maks " + fmt(MAX_BERAT_KG) + " kg).");
         double kg = extractKg(lower);
+
+        String errSatuan = cekSatuanInvalid(lower, true);
+        if (errSatuan != null) {
+            return txt(errSatuan + "\n\nSilakan masukkan ulang berat yang benar:");
+        }
         if (kg <= 0) kg = extractBare(lower);
         if (kg <= 0) return txt("Masukkan berat dalam kg.\nContoh: 2 kg  atau  1.5 kg");
         String err = validasiBerat(kg);
@@ -759,6 +769,11 @@ public class ChatEngine {
     private BotResponse handleTanyaJumlah(String raw, String lower, ChatSession session) {
         if (isBatal(lower)) { resetItem(session); return txt("Item dibatalkan."); }
         if (PAT_NEG.matcher(lower).find()) return txt("Jumlah tidak boleh negatif.\nMasukkan jumlah yang valid (min " + MIN_ITEM + ", maks " + MAX_ITEM + ").");
+
+        String errSatuan = cekSatuanInvalid(lower, false);
+        if (errSatuan != null) {
+            return txt(errSatuan + "\n\nSilakan masukkan ulang jumlah yang benar:");
+        }
         int item = extractItem(lower);
         if (item <= 0) item = (int) extractBare(lower);
         if (item <= 0) return txt("Masukkan jumlah item.\nContoh: 2 item  atau  3");
@@ -859,26 +874,38 @@ public class ChatEngine {
 
         if (cur.layanan.isPerKg() && cur.beratKg <= 0) {
             if (PAT_NEG.matcher(lower).find()) return txt("Berat tidak boleh negatif. Masukkan ulang.");
+
+            // ---> FILTER SATUAN KILOAN <---
+            String errSatuan = cekSatuanInvalid(lower, true);
+            System.out.println(">>> DEBUG: Hasil Filter Kiloan = " + errSatuan); // Pelacak
+
+            if (errSatuan != null) return txt(errSatuan + "\n\nSilakan masukkan ulang berat yang benar:");
+
             double kg = extractKg(lower); if (kg <= 0) kg = extractBare(lower);
             if (kg <= 0) return txt("Masukkan berat dalam kg. Contoh: 2 kg");
             String err = validasiBerat(kg); if (err != null) return txt(err);
             cur.beratKg = kg;
+
         } else if (!cur.layanan.isPerKg() && cur.jumlahItem <= 0) {
             if (PAT_NEG.matcher(lower).find()) return txt("Jumlah tidak boleh negatif. Masukkan ulang.");
+
+            // ---> FILTER SATUAN ITEM <---
+            String errSatuan = cekSatuanInvalid(lower, false);
+            System.out.println(">>> DEBUG: Hasil Filter Item = " + errSatuan); // Pelacak
+
+            if (errSatuan != null) return txt(errSatuan + "\n\nSilakan masukkan ulang jumlah yang benar:");
+
             int item = extractItem(lower); if (item <= 0) item = (int) extractBare(lower);
             if (item <= 0) return txt("Masukkan jumlah item. Contoh: 2");
             String err = validasiItem(item); if (err != null) return txt(err);
             cur.jumlahItem = item;
         }
 
-        // Setelah kuantitas lengkap, simpan ke draft (kecepatan/addon akan ditanya global)
-        // Cek apakah semua clarification selesai
+        // Lanjut ke item berikutnya atau simpan...
         session.clarificationIndex++;
         boolean adaLagi = session.clarificationIndex < session.pendingClarification.size();
         if (adaLagi) return startClarification(session);
 
-        // Semua clarification selesai
-        // Gabungkan yang sudah di draft + hasil clarification → masuk mode global
         List<ParsedOrder> all = new ArrayList<>(session.pendingClarification);
         session.pendingClarification.clear();
         session.clarificationIndex = 0;
@@ -887,9 +914,7 @@ public class ChatEngine {
         if (semuaTanpaKec) return masukModeBGlobal(all, "", session);
 
         for (ParsedOrder o : all) {
-            if (o.isDowngraded) {
-                session.downgradedLayanan.add(o.layanan.getNamaLayanan());
-            }
+            if (o.isDowngraded) session.downgradedLayanan.add(o.layanan.getNamaLayanan());
             session.draftItems.add(toDraft(o));
         }
 
@@ -990,6 +1015,8 @@ public class ChatEngine {
         if (isBatal(lower)) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
         ItemDraft d = session.draftItems.get(session.editIndex);
 
+        String errSatuan = cekSatuanInvalid(lower, d.layanan.isPerKg());
+        if (errSatuan != null) return txt(errSatuan);
         if (d.layanan.isPerKg()) {
             double kg = extractKg(lower); if (kg <= 0) kg = extractBare(lower);
             if (kg <= 0) return txt("Masukkan berat yang valid. Contoh: 2 kg");
@@ -1442,6 +1469,30 @@ public class ChatEngine {
         long req = Arrays.stream(words).filter(w -> w.length() >= 4).count(); if (req == 0) return false;
         long match = Arrays.stream(words).filter(w -> w.length() >= 4 && userInput.contains(w)).count();
         return match == req;
+    }
+
+    private String cekSatuanInvalid(String lower, boolean isPerKg) {
+        // Cek dulu apakah ada angka di dalam kalimat user
+        Matcher numMatcher = Pattern.compile("\\d+").matcher(lower);
+        if (!numMatcher.find()) {
+            return null;
+        }
+        Matcher m = Pattern.compile("\\d+(?:[.,]\\d+)?\\s*([a-z]+)").matcher(lower);
+
+        if (m.find()) {
+            String satuan = m.group(1);
+
+            if (isPerKg) {
+                if (!satuan.equals("kg") && !satuan.equals("kilo") && !satuan.equals("kilogram")) {
+                    return "Tolong gunakan satuan 'kg' (kilo) ya (contoh: 2 kg). Satuan selain itu tidak kami terima.";
+                }
+            } else {
+                if (!satuan.equals("item") && !satuan.equals("pcs")) {
+                    return "Layanan ini dihitung per-item. Tolong gunakan satuan 'item' atau 'pcs' (contoh: 2 item).";
+                }
+            }
+        }
+        return null;
     }
 
     private boolean has(String s, String... kws) { for (String k : kws) if (s.contains(k)) return true; return false; }
