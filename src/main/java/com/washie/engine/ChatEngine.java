@@ -76,6 +76,9 @@ public class ChatEngine {
         public int clarificationIndex = 0;
 
         public Set<String> downgradedLayanan = new HashSet<>();
+
+        // Untuk melacak item nomor berapa yang sedang diedit
+        public int editIndex = -1;
     }
 
     public enum ConvState {
@@ -88,7 +91,12 @@ public class ChatEngine {
         KONFIRMASI,
         CLARIFICATION,
         TANYA_SPEED_ADDON_GLOBAL, // Mode B: tanya kecepatan+addon untuk semua item
-        TANYA_DOWNGRADE
+        TANYA_DOWNGRADE,
+        PILIH_ITEM_UBAH,
+        PILIH_ASPEK_UBAH,
+        UBAH_KUANTITAS,
+        UBAH_KECEPATAN,
+        UBAH_ADDON
     }
 
     // =========================================================================
@@ -1380,7 +1388,7 @@ public class ChatEngine {
     private String fmt(double v) { return v == Math.floor(v) ? String.format("%.0f", v) : String.format("%.1f", v); }
 
     private void resetItem(ChatSession s) { s.layanan=null; s.beratKg=0; s.jumlahItem=0; s.kecepatan=null; s.expressTotal=0; s.addonNama.clear(); s.addonHarga.clear(); }
-    private void resetSemua(ChatSession s) { resetItem(s); s.draftItems.clear(); s.pendingSpeedAddon.clear(); s.pendingClarification.clear(); s.clarificationIndex=0; s.downgradedLayanan.clear(); s.state=ConvState.IDLE; }
+    private void resetSemua(ChatSession s) { resetItem(s); s.draftItems.clear(); s.pendingSpeedAddon.clear(); s.pendingClarification.clear(); s.clarificationIndex=0; s.downgradedLayanan.clear(); s.state=ConvState.IDLE; s.editIndex = -1;}
 
     private static BotResponse txt(String msg) { return new BotResponse(msg, ResponseType.TEXT, null); }
     public enum ResponseType { TEXT, LAYANAN, NOTA }
