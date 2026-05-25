@@ -16,79 +16,95 @@
         <Separator/>
         <VBox styleClass="sidebar-menu" spacing="4">
             <Label text="Kelola Data" styleClass="sidebar-section-label"/>
-            <Button text="Dashboard" styleClass="sidebar-menu-btn"
-                    maxWidth="Infinity" onAction="#handleGoDashboard"/>
-            <Button text="Kelola Layanan" styleClass="sidebar-menu-btn"
-                    maxWidth="Infinity" onAction="#handleGoLayanan"/>
-            <Button text="Info Laundry" styleClass="sidebar-menu-btn sidebar-active"
-                    maxWidth="Infinity"/>
+            <Button text="Dashboard"      styleClass="sidebar-menu-btn" maxWidth="Infinity" onAction="#handleGoDashboard"/>
+            <Button text="Kelola Layanan" styleClass="sidebar-menu-btn" maxWidth="Infinity" onAction="#handleGoLayanan"/>
+            <Button text="Info Laundry"   styleClass="sidebar-menu-btn sidebar-active" maxWidth="Infinity"/>
         </VBox>
         <Region VBox.vgrow="ALWAYS"/>
-        <Button text="← Keluar" styleClass="btn-keluar" maxWidth="Infinity" prefHeight="46" onAction="#handleKeluar"/>
+        <Button text="Keluar" styleClass="btn-keluar" maxWidth="Infinity" prefHeight="46" onAction="#handleKeluar"/>
     </VBox>
 
     <!-- CONTENT -->
-    <VBox HBox.hgrow="ALWAYS" styleClass="admin-content" spacing="16">
-        <HBox alignment="CENTER_LEFT">
-            <Label text="Info Laundry" styleClass="admin-page-title"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button text="+ Tambah Informasi" styleClass="btn-primary-sm"/>
-        </HBox>
+    <ScrollPane fitToWidth="true" HBox.hgrow="ALWAYS" styleClass="admin-content">
+        <VBox spacing="20" style="-fx-padding: 28 28 28 28;">
 
-        <HBox spacing="16">
-            <!-- Identitas Laundry -->
-            <VBox styleClass="info-card" HBox.hgrow="ALWAYS" spacing="10">
-                <HBox alignment="CENTER_LEFT">
-                    <Label text="Identitas Laundry" styleClass="info-card-title" HBox.hgrow="ALWAYS"/>
-                    <Button text="Edit" styleClass="btn-edit" onAction="#handleEditIdentitas"/>
-                </HBox>
-                <VBox spacing="6">
-                    <Label text="NAMA USAHA" styleClass="info-key"/>
-                    <Label fx:id="lblNamaUsaha" text="-" styleClass="info-value"/>
-                    <Label text="PEMILIK" styleClass="info-key"/>
-                    <Label fx:id="lblPemilik" text="-" styleClass="info-value"/>
-                    <Label text="TAHUN BERDIRI" styleClass="info-key"/>
-                    <Label fx:id="lblTahunBerdiri" text="-" styleClass="info-value"/>
+            <!-- Header -->
+            <HBox alignment="CENTER_LEFT">
+                <Label text="Info Laundry" styleClass="admin-page-title" HBox.hgrow="ALWAYS"/>
+            </HBox>
+
+            <!-- ── Row 1: Identitas + Lokasi ── -->
+            <HBox spacing="16">
+                <VBox styleClass="info-card" HBox.hgrow="ALWAYS" spacing="10">
+                    <HBox alignment="CENTER_LEFT">
+                        <Label text="Identitas Laundry" styleClass="info-card-title" HBox.hgrow="ALWAYS"/>
+                        <Button text="Edit" styleClass="btn-edit" onAction="#handleEditIdentitas"/>
+                    </HBox>
+                    <VBox spacing="6">
+                        <Label text="NAMA USAHA"    styleClass="info-key"/>
+                        <Label fx:id="lblNamaUsaha"    text="-" styleClass="info-value"/>
+                        <Label text="PEMILIK"        styleClass="info-key"/>
+                        <Label fx:id="lblPemilik"       text="-" styleClass="info-value"/>
+                        <Label text="TAHUN BERDIRI"  styleClass="info-key"/>
+                        <Label fx:id="lblTahunBerdiri"  text="-" styleClass="info-value"/>
+                    </VBox>
+                    <Label fx:id="lblUpdatedIdentitas" text="" styleClass="info-updated"/>
                 </VBox>
-                <Label fx:id="lblUpdatedIdentitas" text="Diperbarui: -" styleClass="info-updated"/>
+
+                <VBox styleClass="info-card" HBox.hgrow="ALWAYS" spacing="10">
+                    <HBox alignment="CENTER_LEFT">
+                        <Label text="Lokasi &amp; Kontak" styleClass="info-card-title" HBox.hgrow="ALWAYS"/>
+                        <Button text="Edit" styleClass="btn-edit" onAction="#handleEditLokasi"/>
+                    </HBox>
+                    <VBox spacing="6">
+                        <Label text="ALAMAT"        styleClass="info-key"/>
+                        <Label fx:id="lblAlamat"       text="-" styleClass="info-value" wrapText="true"/>
+                        <Label text="NO. WHATSAPP"  styleClass="info-key"/>
+                        <Label fx:id="lblWa"           text="-" styleClass="info-value"/>
+                        <Label text="INSTAGRAM"     styleClass="info-key"/>
+                        <Label fx:id="lblIg"           text="-" styleClass="info-value"/>
+                    </VBox>
+                    <Label fx:id="lblUpdatedLokasi" text="" styleClass="info-updated"/>
+                </VBox>
+            </HBox>
+
+            <!-- ── Row 2: Jam Operasional ── -->
+            <HBox spacing="16">
+                <VBox styleClass="info-card" prefWidth="340" spacing="10">
+                    <HBox alignment="CENTER_LEFT">
+                        <Label text="Jam Operasional" styleClass="info-card-title" HBox.hgrow="ALWAYS"/>
+                        <Button text="Edit" styleClass="btn-edit" onAction="#handleEditJam"/>
+                    </HBox>
+                    <VBox spacing="6">
+                        <Label text="SENIN-JUMAT"          styleClass="info-key"/>
+                        <Label fx:id="lblSenJum"              text="-" styleClass="info-value"/>
+                        <Label text="SABTU-MINGGU"          styleClass="info-key"/>
+                        <Label fx:id="lblSabMinggu"           text="-" styleClass="info-value"/>
+                        <Label text="HARI LIBUR NASIONAL"   styleClass="info-key"/>
+                        <Label fx:id="lblLibur"               text="-" styleClass="info-value"/>
+                    </VBox>
+                    <Label fx:id="lblUpdatedJam" text="" styleClass="info-updated"/>
+                </VBox>
+                <Region HBox.hgrow="ALWAYS"/>
+            </HBox>
+
+            <!-- ── Section: Informasi Tambahan / Pengumuman ── -->
+            <VBox spacing="12">
+                <HBox alignment="CENTER_LEFT" spacing="10">
+                    <VBox HBox.hgrow="ALWAYS" spacing="2">
+                        <Label text="Informasi Tambahan" styleClass="admin-page-title"
+                               style="-fx-font-size:16px;"/>
+                        <Label text="Pengumuman, promo, info libur tanggal merah, dll. Setiap entri tampil sebagai kotak tersendiri."
+                               style="-fx-text-fill:#888; -fx-font-size:11px;"/>
+                    </VBox>
+                    <Button text="+ Tambah Informasi" styleClass="btn-primary-sm"
+                            onAction="#handleTambahInformasi"/>
+                </HBox>
+
+                <!-- Cards pengumuman — FlowPane agar wrap otomatis -->
+                <FlowPane fx:id="flowPengumuman" hgap="16" vgap="16"/>
             </VBox>
 
-            <!-- Lokasi & Kontak -->
-            <VBox styleClass="info-card" HBox.hgrow="ALWAYS" spacing="10">
-                <HBox alignment="CENTER_LEFT">
-                    <Label text="Lokasi &amp; Kontak" styleClass="info-card-title" HBox.hgrow="ALWAYS"/>
-                    <Button text="Edit" styleClass="btn-edit" onAction="#handleEditLokasi"/>
-                </HBox>
-                <VBox spacing="6">
-                    <Label text="ALAMAT" styleClass="info-key"/>
-                    <Label fx:id="lblAlamat" text="-" styleClass="info-value" wrapText="true"/>
-                    <Label text="NO. WHATSAPP" styleClass="info-key"/>
-                    <Label fx:id="lblWa" text="-" styleClass="info-value"/>
-                    <Label text="INSTAGRAM" styleClass="info-key"/>
-                    <Label fx:id="lblIg" text="-" styleClass="info-value"/>
-                </VBox>
-                <Label fx:id="lblUpdatedLokasi" text="Diperbarui: -" styleClass="info-updated"/>
-            </VBox>
-        </HBox>
-
-        <!-- Jam Operasional -->
-        <HBox spacing="16">
-            <VBox styleClass="info-card" prefWidth="400" spacing="10">
-                <HBox alignment="CENTER_LEFT">
-                    <Label text="Jam Operasional" styleClass="info-card-title" HBox.hgrow="ALWAYS"/>
-                    <Button text="Edit" styleClass="btn-edit" onAction="#handleEditJam"/>
-                </HBox>
-                <VBox spacing="6">
-                    <Label text="SENIN-JUMAT" styleClass="info-key"/>
-                    <Label fx:id="lblSenJum" text="-" styleClass="info-value"/>
-                    <Label text="SABTU-MINGGU" styleClass="info-key"/>
-                    <Label fx:id="lblSabMinggu" text="-" styleClass="info-value"/>
-                    <Label text="HARI LIBUR NASIONAL" styleClass="info-key"/>
-                    <Label fx:id="lblLibur" text="-" styleClass="info-value"/>
-                </VBox>
-                <Label fx:id="lblUpdatedJam" text="Diperbarui: -" styleClass="info-updated"/>
-            </VBox>
-            <Region HBox.hgrow="ALWAYS"/>
-        </HBox>
-    </VBox>
+        </VBox>
+    </ScrollPane>
 </HBox>

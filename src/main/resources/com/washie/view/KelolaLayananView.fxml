@@ -16,48 +16,71 @@
         <Separator/>
         <VBox styleClass="sidebar-menu" spacing="4">
             <Label text="Kelola Data" styleClass="sidebar-section-label"/>
-            <Button text="Dashboard" styleClass="sidebar-menu-btn"
-                    maxWidth="Infinity" onAction="#handleGoDashboard"/>
-            <Button text="Kelola Layanan" styleClass="sidebar-menu-btn sidebar-active"
-                    maxWidth="Infinity"/>
-            <Button text="Info Laundry" styleClass="sidebar-menu-btn"
-                    maxWidth="Infinity" onAction="#handleGoInfo"/>
+            <Button text="Dashboard"      styleClass="sidebar-menu-btn" maxWidth="Infinity" onAction="#handleGoDashboard"/>
+            <Button text="Kelola Layanan" styleClass="sidebar-menu-btn sidebar-active" maxWidth="Infinity"/>
+            <Button text="Info Laundry"   styleClass="sidebar-menu-btn" maxWidth="Infinity" onAction="#handleGoInfo"/>
         </VBox>
         <Region VBox.vgrow="ALWAYS"/>
-        <Button text="← Keluar" styleClass="btn-keluar" maxWidth="Infinity" prefHeight="46" onAction="#handleKeluar"/>
+        <Button text="Keluar" styleClass="btn-keluar" maxWidth="Infinity" prefHeight="46" onAction="#handleKeluar"/>
     </VBox>
 
     <!-- CONTENT -->
     <VBox HBox.hgrow="ALWAYS" styleClass="admin-content" spacing="16">
-        <HBox alignment="CENTER_LEFT">
-            <Label text="Kelola Layanan" styleClass="admin-page-title" HBox.hgrow="ALWAYS"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <Button text="+ Tambah Layanan" styleClass="btn-primary-sm" onAction="#handleTambah"/>
-        </HBox>
+        <Label text="Kelola Layanan" styleClass="admin-page-title"/>
 
-        <!-- Filter bar -->
-        <HBox spacing="12" alignment="CENTER_LEFT">
-            <TextField fx:id="tfCari" styleClass="field-input" promptText="Cari Layanan"
-                       prefWidth="360" HBox.hgrow="ALWAYS"/>
-            <Button text="🔍" styleClass="btn-icon"/>
-            <ComboBox fx:id="cbFilter" styleClass="field-input" prefWidth="160"/>
-        </HBox>
+        <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS" tabClosingPolicy="UNAVAILABLE">
 
-        <!-- Table -->
-        <VBox styleClass="table-card" VBox.vgrow="ALWAYS" spacing="10">
-            <HBox alignment="CENTER_LEFT">
-                <Label text="Daftar Layanan" styleClass="table-card-title" HBox.hgrow="ALWAYS"/>
-                <Label fx:id="lblJumlah" text="0 Layanan" styleClass="badge-count"/>
-            </HBox>
-            <TableView fx:id="tableLayanan" VBox.vgrow="ALWAYS" styleClass="washie-table">
-                <columns>
-                    <TableColumn fx:id="colNama"     text="Nama Layanan"    prefWidth="200"/>
-                    <TableColumn fx:id="colHarga"    text="Harga"           prefWidth="130"/>
-                    <TableColumn fx:id="colEstimasi" text="Estimasi Waktu"  prefWidth="160"/>
-                    <TableColumn fx:id="colStatus"   text="STATUS"          prefWidth="100"/>
-                    <TableColumn fx:id="colAksi"     text="AKSI"            prefWidth="140"/>
-                </columns>
-            </TableView>
-        </VBox>
+            <!-- ══ TAB 1: LAYANAN UTAMA ══ -->
+            <Tab text="Layanan Utama">
+                <VBox spacing="12" style="-fx-padding: 16 0 0 0;">
+                    <!-- Filter bar -->
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <TextField fx:id="tfCariLayanan" styleClass="field-input"
+                                   promptText="Cari layanan..." prefWidth="300" HBox.hgrow="ALWAYS"/>
+                        <ComboBox fx:id="cbFilterLayanan" styleClass="field-input" prefWidth="150"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <Label fx:id="lblJumlahLayanan" text="0 Layanan" styleClass="badge-count"/>
+                        <Button text="+ Tambah Layanan" styleClass="btn-primary-sm" onAction="#handleTambahLayanan"/>
+                    </HBox>
+
+                    <Label text="Perubahan harga dan estimasi langsung aktif di chatbot."
+                           style="-fx-text-fill:#888; -fx-font-size:11px;"/>
+
+                    <TableView fx:id="tableLayanan" VBox.vgrow="ALWAYS" styleClass="washie-table">
+                        <columns>
+                            <TableColumn fx:id="colNama"     text="Nama Layanan"  prefWidth="190"/>
+                            <TableColumn fx:id="colHarga"    text="Harga"         prefWidth="120"/>
+                            <TableColumn fx:id="colEstimasi" text="Estimasi"      prefWidth="120"/>
+                            <TableColumn fx:id="colExpress"  text="Express"       prefWidth="80"/>
+                            <TableColumn fx:id="colStatus"   text="Status"        prefWidth="90"/>
+                            <TableColumn fx:id="colAksi"     text="Aksi"          prefWidth="140"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+
+            <!-- ══ TAB 2: ADD-ON ══ -->
+            <Tab text="Add-on Produk Tambahan">
+                <VBox spacing="12" style="-fx-padding: 16 0 0 0;">
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <VBox spacing="4" HBox.hgrow="ALWAYS">
+                            <Label text="Add-on adalah produk tambahan yang bisa dipilih user saat pesan di chatbot."
+                                   style="-fx-text-fill:#555; -fx-font-size:12px;"/>
+                            <Label text="Contoh: Pewangi Premium, Extra Softener, Anti-Septik"
+                                   style="-fx-text-fill:#888; -fx-font-size:11px;"/>
+                        </VBox>
+                        <Button text="+ Tambah Add-on" styleClass="btn-primary-sm" onAction="#handleTambahAddon"/>
+                    </HBox>
+
+                    <Separator/>
+
+                    <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" styleClass="history-scroll"
+                                style="-fx-background-color:transparent;">
+                        <VBox fx:id="vboxAddonList" spacing="8" style="-fx-padding: 4 0 4 0;"/>
+                    </ScrollPane>
+                </VBox>
+            </Tab>
+
+        </TabPane>
     </VBox>
 </HBox>
