@@ -28,6 +28,26 @@ public class PesananService {
         this.sessionManager    = sessionManager;
     }
 
+    public String batalkanPesananUser(String kode) {
+        User currentUser = sessionManager.getCurrentUser();
+        if (currentUser == null) return "LOGIN_REQUIRED";
+
+        Optional<Pesanan> opt = pesananRepository.findByKodePesanan(kode.toUpperCase().trim());
+        if (opt.isEmpty()) return "NOT_FOUND";
+
+        Pesanan p = opt.get();
+
+        // Keamanan: Pastikan user hanya bisa membatalkan pesanannya sendiri
+        if (!p.getUser().getId().equals(currentUser.getId())) return "UNAUTHORIZED";
+
+        // Aturan utama: Hanya bisa dibatalkan jika belum diproses
+        if (p.getStatus() != Pesanan.Status.BELUM_DIPROSES) return "TOLAK";
+
+        p.setStatus(Pesanan.Status.DIBATALKAN);
+        pesananRepository.save(p);
+        return "SUKSES";
+    }
+
     public List<Pesanan> getPesananTerkini() {
         return pesananRepository.findTop10ByOrderByUpdatedAtDesc();
     }
@@ -62,7 +82,7 @@ public class PesananService {
         pesanan.setKodePesanan(generateKodePesanan());
         pesanan.setUser(currentUser);
         pesanan.setTanggalMasuk(LocalDate.now());
-        pesanan.setStatus(Pesanan.Status.DIPROSES);
+        pesanan.setStatus(Pesanan.Status.BELUM_DIPROSES);
         pesanan.setLayanan(drafts.get(0).layanan); // layanan utama (item pertama)
 
         double grandTotal = 0;
