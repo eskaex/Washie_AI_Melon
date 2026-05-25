@@ -1072,7 +1072,7 @@ public class ChatEngine {
             case "ESTIMASI" -> txt("Estimasi " + l.getNamaLayanan() + ":\n- Standar: " + l.getEstimasiWaktu() + "\n- Express: " + (l.isBisaExpress() ? "1 Hari Kerja (+Rp" + fmt(er) + sat + ")" : "tidak tersedia") + "\n\nHarga: Rp" + fmt(l.getHarga()) + sat);
             case "DESKRIPSI" -> {
                 Map<String,String> d = new HashMap<>(Map.of("Dry Cleaning","Pencucian cairan kimia khusus. Cocok jas, kebaya, gaun, wol, sutra.","Cuci Kering","Cuci+kering tanpa setrika. Untuk pakaian kasual.","Cuci + Setrika","Cuci, kering, setrika rapi. Untuk kemeja dan formal.","Setrika Saja","Penyetrikaan pakaian yang sudah bersih.","Cuci Bedcover","Pencucian bedcover mesin besar. Per item.","Cuci Boneka","Pencucian lembut stuffed toy. Per item."));
-                d.put("Cuci Karpet","Pencucian karpet mesin khusus. Per m².");
+                d.put("Cuci Karpet","Pencucian karpet mesin khusus. Per kg.");
                 d.put("Cuci Selimut","Pencucian selimut tebal/tipis. Per item.");
                 d.put("Cuci Handuk","Pencucian handuk menjaga kelembutan.");
                 d.put("Cuci Gorden & Vitrase","Pencucian tirai/gorden hati-hati. Per item.");
