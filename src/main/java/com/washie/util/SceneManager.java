@@ -39,6 +39,7 @@ public class SceneManager {
         } else {
             scene.setRoot(root);
         }
+        primaryStage.show();
     }
 
     private Parent loadFxml(String fxmlPath) throws IOException {
