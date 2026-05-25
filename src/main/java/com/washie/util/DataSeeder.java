@@ -8,6 +8,7 @@ import com.washie.model.InfoEntity;
 import com.washie.model.Layanan;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import java.util.List;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
@@ -67,17 +68,24 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
+    private static final String KATEGORI_IDENTITAS = "IDENTITAS";
+    private static final String KATEGORI_LOKASI = "LOKASI_KONTAK";
+    private static final String KATEGORI_JAM = "JAM_OPERASIONAL";
+
     private void seedInfoLaundry() {
-        if (infoRepository.findByKategori("IDENTITAS").isEmpty()) {
-            infoRepository.save(new InfoEntity("IDENTITAS", "nama_usaha", "Washie Laundry"));
-            infoRepository.save(new InfoEntity("IDENTITAS", "pemilik", "Bapak Agung Prayono"));
-            infoRepository.save(new InfoEntity("IDENTITAS", "tahun_berdiri", "2020"));
-            infoRepository.save(new InfoEntity("LOKASI_KONTAK", "alamat", "Jl. Kusbini No. 08, Yogyakarta"));
-            infoRepository.save(new InfoEntity("LOKASI_KONTAK", "whatsapp", "0852-3456-7890"));
-            infoRepository.save(new InfoEntity("LOKASI_KONTAK", "instagram", "@washie.laundry"));
-            infoRepository.save(new InfoEntity("JAM_OPERASIONAL", "senin_jumat", "08.00 - 21.00"));
-            infoRepository.save(new InfoEntity("JAM_OPERASIONAL", "sabtu_minggu", "09.00 - 19.00"));
-            infoRepository.save(new InfoEntity("JAM_OPERASIONAL", "hari_libur", "Tutup"));
+        if (infoRepository.findByKategori(KATEGORI_IDENTITAS).isEmpty()) {
+            List<InfoEntity> infoList = List.of(
+                    new InfoEntity(KATEGORI_IDENTITAS, "nama_usaha", "Washie Laundry"),
+                    new InfoEntity(KATEGORI_IDENTITAS, "pemilik", "Bapak Agung Prayono"),
+                    new InfoEntity(KATEGORI_IDENTITAS, "tahun_berdiri", "2020"),
+                    new InfoEntity(KATEGORI_LOKASI, "alamat", "Jl. Kusbini No. 08, Yogyakarta"),
+                    new InfoEntity(KATEGORI_LOKASI, "whatsapp", "0852-3456-7890"),
+                    new InfoEntity(KATEGORI_LOKASI, "instagram", "@washie.laundry"),
+                    new InfoEntity(KATEGORI_JAM, "senin_jumat", "08.00 - 21.00"),
+                    new InfoEntity(KATEGORI_JAM, "sabtu_minggu", "09.00 - 19.00"),
+                    new InfoEntity(KATEGORI_JAM, "hari_libur", "Tutup")
+            );
+            infoRepository.saveAll(infoList);
         }
     }
 
