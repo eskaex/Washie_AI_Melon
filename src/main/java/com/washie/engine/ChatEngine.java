@@ -192,6 +192,9 @@ public class ChatEngine {
     // =========================================================================
     private BotResponse handleIdle(String raw, String lower, ChatSession session) {
         String kode = cariKode(raw);
+        if (has(lower, "batal", "batalkan", "cancel") && (has(lower, "pesan", "order", "ws-"))) {
+            return handleBatalkanPesanan(raw, lower);
+        }
         if (kode != null) return cekStatus(kode);
         if (has(lower,"status pesanan","cek pesanan","lacak")) return txt("Masukkan kode pesanan.\nContoh: cek WS-001");
         if (has(lower, "riwayat", "pesanan saya", "history")) return cekRiwayat();
@@ -1102,15 +1105,30 @@ public class ChatEngine {
     private BotResponse cekStatus(String kode) {
         return pesananService.getByKode(kode).map(p -> txt("Status " + p.getKodePesanan() + ":\nNama: " + p.getUser().getNamaLengkap() + "\nLayanan: " + (p.getLayanan() != null ? p.getLayanan().getNamaLayanan() : "-") + (p.getItems().size() > 1 ? " +" + (p.getItems().size()-1) + " lagi" : "") + "\nTotal: Rp" + (p.getTotalHarga() != null ? fmt(p.getTotalHarga()) : "-") + "\nStatus: " + switch(p.getStatus()){case DIPROSES -> "Sedang Diproses"; case SELESAI -> "Selesai - siap diambil!"; case DIAMBIL -> "Sudah Diambil";})).orElse(txt("Pesanan " + kode + " tidak ditemukan."));
     }
+
+    private BotResponse handleBatalkanPesanan(String raw, String lower){
+        String kode = cariKode(raw); // Menggunakan method cariKode yang sudah kamu punya
+
+        if (kode == null) {
+            return txt("Masukkan kode pesanan yang ingin dibatalkan.\nContoh: batalkan WS-001");
+        }
+        String hasil = pesananService.batalkanPesananUser(kode);
+        return switch (hasil) {
+            case "NOT_FOUND" -> txt("Pesanan " + kode + " tidak ditemukan.");
+            case "UNAUTHORIZED" -> txt("Kamu tidak bisa membatalkan pesanan milik akun lain.");
+            case "TOLAK" -> txt("Maaf, pesanan " + kode + " sudah mulai diproses (atau sudah selesai) sehingga tidak bisa dibatalkan.");
+            case "SUKSES" -> txt("Sip! Pesanan " + kode + " berhasil dibatalkan.");
+            default -> txt("Terjadi kesalahan sistem. Silakan hubungi admin.");
+        };
+    }
+
     private BotResponse cekRiwayat() {
         List<Pesanan> riwayat = pesananService.getRiwayatPesananCurrentUser();
 
         if (riwayat.isEmpty()) {
             return txt("Kamu belum memiliki riwayat pesanan. Yuk buat pesanan pertamamu!");
         }
-
         StringBuilder sb = new StringBuilder("Riwayat Pesanan Kamu:\n\n");
-
         int limit = Math.min(riwayat.size(), 5);
         for (int i = 0; i < limit; i++) {
             Pesanan p = riwayat.get(i);
