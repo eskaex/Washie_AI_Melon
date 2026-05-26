@@ -224,12 +224,30 @@ public class ChatEngine {
         for (String kw : DAFTAR_KW)     if (lower.contains(kw)) return respDaftarLayanan();
         for (String kw : PENGUMUMAN_KW) if (lower.contains(kw)) return respPengumuman();
 
-        for (String[] row : INFO_MAP)
-            if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find())
-                return handleInfo(row[1], row[2]);
+        // FAQ Harga & Estimasi
+        List<Layanan> layananDb = layananService.getLayananAktif();
+        for (Layanan l : layananDb) {
+            String namaDb = l.getNamaLayanan();
+            String regexNama = Pattern.quote(namaDb.toLowerCase());
 
-        boolean adaLayanan = LAYANAN_PAT.stream()
-                .anyMatch(row -> Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find());
+            for (String[] pat : LAYANAN_PAT) {
+                if (pat[1].equalsIgnoreCase(namaDb)) { regexNama = pat[0]; break; }
+            }
+
+            if (Pattern.compile("(?i)(harga|biaya|tarif|berapa).*(" + regexNama + ")").matcher(raw).find()) {
+                return handleInfo("HARGA", namaDb);
+            }
+
+            if (Pattern.compile("(?i)(lama|estimasi|kapan|selesai|waktu).*(" + regexNama + ")").matcher(raw).find()) {
+                return handleInfo("ESTIMASI", namaDb);
+            }
+
+            if (Pattern.compile("(?i)(apa|jelaskan|info|maksud|ceritakan).*(" + regexNama + ")").matcher(raw).find()) {
+                return handleInfo("DESKRIPSI", namaDb);
+            }
+        }
+
+        boolean adaLayanan = containsLayananAktif(raw);
 
         if (adaLayanan) return parseMultiOrder(raw, lower, session);
 
@@ -529,8 +547,34 @@ public class ChatEngine {
     private BotResponse parseSpeedAddonPerLayanan(String raw, String lower,
                                                   List<ParsedOrder> orders, List<Layanan> addonsDb, ChatSession session) {
 
-        // Pisah segmen berdasarkan koma
-        String[] parts = raw.split(",\\s*|;\\s*");
+        String teksInput = lower.trim();
+
+        teksInput = teksInput.replaceAll("(?i),\\s*|;\\s*|\\.\\s+|\\n+|\\bdan\\b|\\bsama\\b", "|");
+
+        Set<String> keywords = new HashSet<>();
+        for (ParsedOrder o : orders) {
+            String[] words = o.layanan.getNamaLayanan().toLowerCase().split("\\s+");
+            for (String w : words) {
+                if (w.length() >= 4) {
+                    keywords.add(Pattern.quote(w));
+                }
+            }
+            for (String[] pat : LAYANAN_PAT) {
+                if (pat[1].equalsIgnoreCase(o.layanan.getNamaLayanan())) {
+                    keywords.add(pat[0]);
+                    break;
+                }
+            }
+        }
+
+        // 3. Injeksi pipa (|) tepat di depan kata-kata kunci tersebut!
+        if (!keywords.isEmpty()) {
+            String regexKeywords = String.join("|", keywords);
+            teksInput = teksInput.replaceAll("(?i)(?<!\\|)\\b(" + regexKeywords + ")", "|$1");
+        }
+
+        // 4. Pecah teks
+        String[] parts = teksInput.split("\\|");
 
         // Map nama layanan → order
         Map<String, ParsedOrder> orderMap = new LinkedHashMap<>();
@@ -641,11 +685,30 @@ public class ChatEngine {
         ParsedOrder order = new ParsedOrder();
         order.rawSegment = seg;
 
-        // 1. Deteksi layanan
-        for (String[] row : LAYANAN_PAT) {
-            if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(seg).find()) {
-                Optional<Layanan> opt = cariLayananDb(row[1]);
-                if (opt.isPresent()) { order.layanan = opt.get(); break; }
+        // --- 1. DETEKSI LAYANAN (REGEX + DATABASE) ---
+        List<Layanan> layananDb = layananService.getLayananAktif();
+
+        for (Layanan l : layananDb) {
+            String namaDb = l.getNamaLayanan();
+            boolean matched = false;
+
+            for (String[] pat : LAYANAN_PAT) {
+                if (pat[1].equalsIgnoreCase(namaDb) &&
+                        Pattern.compile(pat[0], Pattern.CASE_INSENSITIVE).matcher(seg).find()) {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched) {
+                if (segLow.contains(namaDb.toLowerCase())) {
+                    matched = true;
+                }
+            }
+
+            if (matched) {
+                order.layanan = l;
+                break;
             }
         }
         if (order.layanan == null) return order;
@@ -710,23 +773,39 @@ public class ChatEngine {
     //  SPLIT SEGMEN
     // =========================================================================
     private List<String> splitSegments(String raw) {
-        // Memisahkan berdasarkan koma, titik koma, enter, ATAU titik yang diikuti spasi
-        String[] parts = raw.split("(?i),\\s*|;\\s*|\\.\\s+|\\n+");
+        String teksInput = raw.toLowerCase().trim();
+
+        List<Layanan> daftarLayanan = layananService.getLayananAktif();
+
+        daftarLayanan.sort((a, b) -> b.getNamaLayanan().length() - a.getNamaLayanan().length());
+
+        for (Layanan l : daftarLayanan) {
+            String namaLayanan = l.getNamaLayanan().toLowerCase();
+            String regexNama = Pattern.quote(namaLayanan);
+
+            for(String[] pat : LAYANAN_PAT){
+                if(pat[1].equalsIgnoreCase(l.getNamaLayanan())){
+                    regexNama = pat[0];
+                    break;
+                }
+            }
+
+            teksInput = teksInput.replaceAll("(?i)(?<!\\|)\\b(" + regexNama + ")", "|$1");
+        }
+
+        teksInput = teksInput.replaceAll("(?i),\\s*|;\\s*|\\.\\s+|\\n+|\\bdan\\b|\\bsama\\b", "|");
+
+        String[] parts = teksInput.split("\\|");
+
         List<String> result = new ArrayList<>();
 
         for (String part : parts) {
-            // Tambahkan "semua" dan "add" ke lookahead agar kalimat seperti "dan semua express" terpisah
-            Matcher m = Pattern.compile(
-                    "(?i)\\bdan\\b(?=\\s*(?:cuci|setrika|dry|bedcover|sprei|selimut|handuk|gorden|karpet|boneka|semua|add))"
-            ).matcher(part);
-            if (m.find()) {
-                result.add(part.substring(0, m.start()).trim());
-                result.add(part.substring(m.end()).trim());
-            } else {
+            if(!part.isBlank()){
                 result.add(part.trim());
             }
         }
-        return result.stream().filter(s -> !s.isBlank()).collect(Collectors.toList());
+
+        return result;
     }
 
     // =========================================================================
@@ -843,7 +922,7 @@ public class ChatEngine {
     private BotResponse handleTanyaTambahItem(String raw, String lower, ChatSession session) {
         if (has(lower,"batal semua","cancel semua")) { resetSemua(session); return txt("Semua pesanan dibatalkan."); }
         if (has(lower,"selesai","tidak","no","gak","ga","sudah","cukup")) { session.state = ConvState.KONFIRMASI; return tampilNota(session); }
-        boolean adaL = LAYANAN_PAT.stream().anyMatch(row -> Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(raw).find());
+        boolean adaL = containsLayananAktif(raw);
         if (adaL) { session.state = ConvState.IDLE; return parseMultiOrder(raw, lower, session); }
         if (has(lower,"ya","iya","yes","tambah")) { session.state = ConvState.IDLE; return respTanyaLayanan(); }
         return txt("Ketik nama layanan untuk tambah, atau selesai untuk konfirmasi.");
@@ -1493,6 +1572,28 @@ public class ChatEngine {
             }
         }
         return null;
+    }
+
+    // =========================================================================
+    // Deteksi Layanan DB + LAYANAN_PAT
+    // =========================================================================
+    private boolean containsLayananAktif(String input) {
+        String lower = input.toLowerCase();
+        List<Layanan> layananDb = layananService.getLayananAktif();
+
+        for (Layanan l : layananDb) {
+            // Cek Jalur Dinamis (Database)
+            if (lower.contains(l.getNamaLayanan().toLowerCase())) return true;
+
+            // Cek Jalur Sinonim (Kamus LAYANAN_PAT)
+            for (String[] pat : LAYANAN_PAT) {
+                if (pat[1].equalsIgnoreCase(l.getNamaLayanan()) &&
+                        Pattern.compile(pat[0], Pattern.CASE_INSENSITIVE).matcher(input).find()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean has(String s, String... kws) { for (String k : kws) if (s.contains(k)) return true; return false; }
