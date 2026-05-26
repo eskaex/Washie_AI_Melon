@@ -61,7 +61,6 @@ public class DataSeeder implements CommandLineRunner {
         long addonCount = layananRepository.findAll().stream()
                 .filter(l -> l.getTipe() == Layanan.Tipe.ADDON).count();
         if (addonCount == 0) {
-            // constructor: (nama, harga) → tipe otomatis ADDON
             layananRepository.save(new Layanan("Pewangi Premium",              3000d));
             layananRepository.save(new Layanan("Extra Softener",               2000d));
             layananRepository.save(new Layanan("Anti Septik",                  2000d));

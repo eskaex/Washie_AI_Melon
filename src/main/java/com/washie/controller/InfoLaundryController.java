@@ -155,7 +155,6 @@ public class InfoLaundryController implements Initializable {
             String judul = tfJudul.getText().trim();
             String isi   = taIsi.getText().trim();
             if (judul.isEmpty() || isi.isEmpty()) return null;
-            // Simpan: kategori=INFORMASI, kunci=judul, nilai=isi
             infoService.save(new InfoEntity("INFORMASI", judul, isi));
             return true;
         });

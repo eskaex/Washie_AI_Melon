@@ -14,23 +14,7 @@ import java.util.*;
 import java.util.regex.*;
 import java.util.stream.Collectors;
 
-/**
- * ChatEngine — NLP Multi-Order Parser dengan Global Speed/Addon Mode.
- *
- * Mode yang didukung:
- *
- * MODE A — Per-item lengkap dalam 1 bubble:
- *   "cuci setrika 3kg express pewangi premium, cuci boneka 2 item standar"
- *
- * MODE B — Daftar dulu, kecepatan+addon belakangan:
- *   Bubble 1: "cuci setrika 3kg, cuci kering 2kg, bedcover 1 item"
- *   Bot: "Mau kecepatan apa untuk semua? Dan add-on apa?"
- *   Bubble 2: "semua express, pewangi premium"
- *
- * MODE C — Kecepatan/addon berbeda per layanan, bilang di akhir:
- *   Bubble 1: "cuci setrika 3kg, cuci kering 2kg, bedcover 1 item"
- *   Bubble 2: "setrika express pewangi, kering standar tanpa addon, bedcover standar semua addon"
- */
+
 @Component
 public class ChatEngine {
 
@@ -56,7 +40,6 @@ public class ChatEngine {
     public static class ChatSession {
         public ConvState state = ConvState.IDLE;
 
-        // Mode interaktif 1 item
         public Layanan      layanan;
         public double       beratKg      = 0;
         public int          jumlahItem   = 0;
@@ -64,20 +47,11 @@ public class ChatEngine {
         public double       expressTotal = 0;
         public List<String> addonNama    = new ArrayList<>();
         public List<Double> addonHarga   = new ArrayList<>();
-
-        // Draft items siap simpan
         public List<ItemDraft> draftItems = new ArrayList<>();
-
-        // Mode B/C: item sudah di-parse kuantitas, menunggu kecepatan+addon
         public List<ParsedOrder> pendingSpeedAddon = new ArrayList<>();
-
-        // Clarification untuk item yang kurang info kuantitas
         public List<ParsedOrder> pendingClarification = new ArrayList<>();
         public int clarificationIndex = 0;
-
         public Set<String> downgradedLayanan = new HashSet<>();
-
-        // Untuk melacak item nomor berapa yang sedang diedit
         public int editIndex = -1;
     }
 
@@ -90,7 +64,7 @@ public class ChatEngine {
         TANYA_TAMBAH_ITEM,
         KONFIRMASI,
         CLARIFICATION,
-        TANYA_SPEED_ADDON_GLOBAL, // Mode B: tanya kecepatan+addon untuk semua item
+        TANYA_SPEED_ADDON_GLOBAL,
         TANYA_DOWNGRADE,
         PILIH_ITEM_UBAH,
         PILIH_ASPEK_UBAH,
@@ -107,7 +81,7 @@ public class ChatEngine {
         public Layanan layanan;
         public double  beratKg    = 0;
         public int     jumlahItem = 0;
-        public String  kecepatan;          // null = belum ditentukan
+        public String  kecepatan;
         public List<String> addonName  = new ArrayList<>();
         public List<Double> addonHarga = new ArrayList<>();
         public boolean tanpaAddon = false;
@@ -159,15 +133,12 @@ public class ChatEngine {
     private static final String[] DAFTAR_KW     = {"daftar layanan","list layanan","layanan apa","layanan ada apa","ada layanan apa","apa saja layanan","layanan tersedia","pilihan layanan","menu layanan","semua layanan","layanan yang ada","ada apa aja","apa aja layanan"};
     private static final String[] PENGUMUMAN_KW = {"pengumuman","info terbaru","ada info","ada promo","promo","info hari ini","berita","update","announcement","informasi terbaru"};
 
-    // Keyword kecepatan
     private static final Pattern PAT_EXPRESS = Pattern.compile("\\b(express|ekspres|kilat|cepat|1\\s*hari|sehari)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern PAT_STANDAR  = Pattern.compile("\\b(standar|standard|biasa|normal|reguler|2\\s*hari|3\\s*hari)\\b", Pattern.CASE_INSENSITIVE);
 
-    // Keyword addon global
     private static final Pattern PAT_TANPA_ADDON = Pattern.compile("\\b(tanpa\\s+(?:add[- ]?on|tambahan|pewangi|softener|anti)|tidak\\s+pakai|no\\s+addon|without)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern PAT_SEMUA_ADDON = Pattern.compile("\\b(semua\\s+(?:add[- ]?on|addon|tambahan)|all\\s+addon|keduanya|semua\\s+produk)\\b", Pattern.CASE_INSENSITIVE);
 
-    // Angka
     private static final Pattern PAT_KG   = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(?:kg|kilo(?:gram)?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PAT_ITEM = Pattern.compile("(\\d+(?:[.,]\\d+)?)\\s*(?:item|pcs|buah|lembar|meter|helai|unit)", Pattern.CASE_INSENSITIVE);
     private static final Pattern PAT_NEG  = Pattern.compile("-\\s*\\d");
@@ -224,7 +195,6 @@ public class ChatEngine {
         for (String kw : DAFTAR_KW)     if (lower.contains(kw)) return respDaftarLayanan();
         for (String kw : PENGUMUMAN_KW) if (lower.contains(kw)) return respPengumuman();
 
-        // FAQ Harga & Estimasi
         List<Layanan> layananDb = layananService.getLayananAktif();
         for (Layanan l : layananDb) {
             String namaDb = l.getNamaLayanan();
@@ -282,8 +252,6 @@ public class ChatEngine {
             ParsedOrder order = parseOneSegment(seg, seg.toLowerCase(), addonsDb);
 
             if (order.errorMsg != null) { errors.add("\"" + seg.trim() + "\" → " + order.errorMsg); continue; }
-
-            // Jika segmen ini TIDAK mengandung nama layanan, tangkap sebagai instruksi global!
             if (order.layanan == null) {
                 String segLow = seg.toLowerCase();
 
@@ -312,7 +280,7 @@ public class ChatEngine {
                         }
                     }
                 }
-                continue; // Lanjut ke segmen berikutnya, jangan masuk ke keranjang 'parsed'
+                continue;
             }
             parsed.add(order);
         }
@@ -322,8 +290,6 @@ public class ChatEngine {
         // ==============================================================
         if (globalSpeed != null || !globalAddonName.isEmpty() || globalTanpaAddon || globalSemuaAddon) {
             for (ParsedOrder o : parsed) {
-
-                // Pengecekan kecepatan dengan validasi Express
                 if (o.kecepatan == null && globalSpeed != null) {
                     if (globalSpeed.equals("EXPRESS") && !o.layanan.isBisaExpress()) {
                         o.kecepatan = "STANDAR"; // Paksa jadi standar jika tidak mendukung express
@@ -368,20 +334,13 @@ public class ChatEngine {
                 .filter(o -> !o.kuantitasLengkap()).collect(Collectors.toList());
 
         if (!kurangKuantitas.isEmpty()) {
-            // Simpan yang sudah punya kuantitas ke draft sementara
             List<ParsedOrder> punyaKuantitas = parsed.stream()
                     .filter(ParsedOrder::kuantitasLengkap).collect(Collectors.toList());
-
-            // Cek apakah yang sudah punya kuantitas juga belum ada kecepatan
-            // → jika semua item tidak ada kecepatan, mungkin user memang mau bilang kecepatan belakangan
             boolean semuaTanpaKecepatan = parsed.stream().allMatch(o -> o.kecepatan == null);
 
             if (semuaTanpaKecepatan && kurangKuantitas.isEmpty()) {
-                // Semua punya kuantitas tapi tanpa kecepatan → Mode B
                 return masukModeBGlobal(parsed, errHeader.toString(), session);
             }
-
-            // Ada yang kurang kuantitas → tanya dulu
             parsed.stream().filter(ParsedOrder::kuantitasLengkap)
                     .forEach(o -> session.draftItems.add(toDraft(o)));
             session.pendingClarification = kurangKuantitas;
@@ -400,34 +359,22 @@ public class ChatEngine {
         boolean adaYangTanpaKecepatan = parsed.stream().anyMatch(o -> o.kecepatan == null);
 
         if (adaYangTanpaKecepatan) {
-            // MODE B/C: user belum tentukan kecepatan → tanya
             return masukModeBGlobal(parsed, errHeader.toString(), session);
         }
-
-        // Semua lengkap → simpan ke draft dan lewat penjaga gerbang
         for (ParsedOrder o : parsed) {
             if (o.isDowngraded) {
                 session.downgradedLayanan.add(o.layanan.getNamaLayanan());
             }
             session.draftItems.add(toDraft(o));
         }
-
-        // PANGGIL PENJAGA GERBANG (Tampung dulu responsnya, jangan langsung di-return)
         BotResponse response = routeToNotaOrDowngrade(session);
 
-        // Jika ada pesan error dari segment lain (errHeader), tempelkan di atas respons penjaga gerbang
         if (!errHeader.isEmpty()) {
             return new BotResponse(errHeader + response.getText(), response.getType(), response.getData());
         }
-
-        // Jika tidak ada error, kembalikan respons murni dari penjaga gerbang
         return response;
     }
 
-    /**
-     * Mode B: semua item sudah punya kuantitas, tapi belum ada kecepatan & addon.
-     * Bot tanya sekali untuk semua item, atau user bisa tentukan per-item.
-     */
     private BotResponse masukModeBGlobal(List<ParsedOrder> orders, String errMsg, ChatSession session) {
         session.pendingSpeedAddon = orders;
         session.state             = ConvState.TANYA_SPEED_ADDON_GLOBAL;
@@ -446,8 +393,6 @@ public class ChatEngine {
             sb.append("\n");
         }
         sb.append("\n");
-
-        // Tampilkan opsi kecepatan dan addon
         sb.append("Sekarang tentukan kecepatan dan add-on.\n\n");
         sb.append("Opsi 1 — Sama untuk semua:\n");
         sb.append("  \"semua express, pewangi premium\"\n");
@@ -472,19 +417,14 @@ public class ChatEngine {
 
         List<Layanan>     addonsDb = layananService.getAddonAktif();
         List<ParsedOrder> orders   = session.pendingSpeedAddon;
-
-        // ── Cek apakah ada keyword kecepatan per-layanan (Mode C) ──────────
         boolean adaPerLayanan = orders.stream().anyMatch(o ->
                 lower.contains(o.layanan.getNamaLayanan().toLowerCase().split("\\s+")[0]) ||
                         lower.contains(o.layanan.getNamaLayanan().toLowerCase())
         );
 
         if (adaPerLayanan) {
-            // Mode C: parse per-layanan dari kalimat ini
             return parseSpeedAddonPerLayanan(raw, lower, orders, addonsDb, session);
         }
-
-        // ── Mode B: satu kecepatan+addon untuk semua ──────────────────────
         String kecepatan = null;
         if (PAT_EXPRESS.matcher(lower).find()) kecepatan = "EXPRESS";
         else if (PAT_STANDAR.matcher(lower).find()) kecepatan = "STANDAR";
@@ -495,8 +435,6 @@ public class ChatEngine {
                     "atau tentukan per-layanan:\n" +
                     "  \"setrika express, kering standar\"");
         }
-
-        // Cek addon global
         boolean tanpa = PAT_TANPA_ADDON.matcher(lower).find();
         boolean semua = PAT_SEMUA_ADDON.matcher(lower).find();
 
@@ -515,8 +453,6 @@ public class ChatEngine {
                 }
             }
         }
-
-        // Terapkan ke semua item
         for (ParsedOrder o : orders) {
             if ("EXPRESS".equals(kecepatan) && !o.layanan.isBisaExpress()) {
                 o.kecepatan = "STANDAR";
@@ -529,8 +465,6 @@ public class ChatEngine {
             o.semuaAddon = semua;
             o.addonName.clear(); o.addonHarga.clear();
             o.addonName.addAll(addonNama); o.addonHarga.addAll(addonHarga);
-
-            // CEK DOWNGRADE SEBELUM MASUK DRAFT
             if (o.isDowngraded) {
                 session.downgradedLayanan.add(o.layanan.getNamaLayanan());
             }
@@ -538,12 +472,9 @@ public class ChatEngine {
         }
 
         session.pendingSpeedAddon.clear();
-
-        // PANGGIL PENJAGA GERBANG
         return routeToNotaOrDowngrade(session);
     }
 
-    /** Mode C: parse kecepatan+addon berbeda per-layanan */
     private BotResponse parseSpeedAddonPerLayanan(String raw, String lower,
                                                   List<ParsedOrder> orders, List<Layanan> addonsDb, ChatSession session) {
 
@@ -567,16 +498,13 @@ public class ChatEngine {
             }
         }
 
-        // 3. Injeksi pipa (|) tepat di depan kata-kata kunci tersebut!
         if (!keywords.isEmpty()) {
             String regexKeywords = String.join("|", keywords);
             teksInput = teksInput.replaceAll("(?i)(?<!\\|)\\b(" + regexKeywords + ")", "|$1");
         }
 
-        // 4. Pecah teks
         String[] parts = teksInput.split("\\|");
 
-        // Map nama layanan → order
         Map<String, ParsedOrder> orderMap = new LinkedHashMap<>();
         for (ParsedOrder o : orders)
             orderMap.put(o.layanan.getNamaLayanan().toLowerCase(), o);
@@ -585,11 +513,8 @@ public class ChatEngine {
 
         for (String part : parts) {
             String partLow = part.toLowerCase().trim();
-
-            // Cari layanan yang disebut di segmen ini
             ParsedOrder target = null;
             for (Map.Entry<String, ParsedOrder> entry : orderMap.entrySet()) {
-                // Cek apakah nama layanan (atau kata pertamanya) ada di segmen
                 String[] words = entry.getKey().split("\\s+");
                 for (String w : words) {
                     if (w.length() >= 4 && partLow.contains(w)) {
@@ -601,7 +526,6 @@ public class ChatEngine {
             }
 
             if (target == null) {
-                // Coba match dengan keyword layanan
                 for (String[] row : LAYANAN_PAT) {
                     if (Pattern.compile(row[0], Pattern.CASE_INSENSITIVE).matcher(part).find()) {
                         Optional<Layanan> opt = cariLayananDb(row[1]);
@@ -616,11 +540,8 @@ public class ChatEngine {
 
             if (target == null) continue;
 
-            // Deteksi kecepatan
             if (PAT_EXPRESS.matcher(partLow).find())       target.kecepatan = "EXPRESS";
             else if (PAT_STANDAR.matcher(partLow).find())  target.kecepatan = "STANDAR";
-
-            // Deteksi addon
             boolean tanpa = PAT_TANPA_ADDON.matcher(partLow).find();
             boolean semua = PAT_SEMUA_ADDON.matcher(partLow).find();
             target.tanpaAddon = tanpa;
@@ -645,27 +566,21 @@ public class ChatEngine {
             sudahDiatur.add(target);
         }
 
-        // Cek item yang belum diatur
         List<ParsedOrder> belumDiatur = orders.stream()
                 .filter(o -> !sudahDiatur.contains(o) || o.kecepatan == null)
                 .collect(Collectors.toList());
 
         if (!belumDiatur.isEmpty()) {
-            // Tanya sisanya → default standar tanpa addon? atau tanya user
             StringBuilder sb = new StringBuilder("Beberapa layanan belum ditentukan kecepatannya:\n\n");
             belumDiatur.forEach(o -> sb.append("- ").append(o.layanan.getNamaLayanan()).append("\n"));
             sb.append("\nKetik kecepatan untuk item di atas (contoh: semua standar tanpa addon),\n");
             sb.append("atau ketik lewati untuk pakai standar tanpa add-on.");
-            // Simpan yang sudah OK
             orders.stream().filter(sudahDiatur::contains).filter(o -> o.kecepatan != null)
                     .forEach(o -> session.draftItems.add(toDraft(o)));
             session.pendingSpeedAddon = belumDiatur;
             return txt(sb.toString());
         }
-
-        // Semua sudah diatur
         for (ParsedOrder o : orders) {
-            // CEK DOWNGRADE SEBELUM MASUK DRAFT
             if (o.isDowngraded) {
                 session.downgradedLayanan.add(o.layanan.getNamaLayanan());
             }
@@ -673,8 +588,6 @@ public class ChatEngine {
         }
 
         session.pendingSpeedAddon.clear();
-
-        // PANGGIL PENJAGA GERBANG
         return routeToNotaOrDowngrade(session);
     }
 
@@ -684,8 +597,6 @@ public class ChatEngine {
     private ParsedOrder parseOneSegment(String seg, String segLow, List<Layanan> addonsDb) {
         ParsedOrder order = new ParsedOrder();
         order.rawSegment = seg;
-
-        // --- 1. DETEKSI LAYANAN (REGEX + DATABASE) ---
         List<Layanan> layananDb = layananService.getLayananAktif();
 
         for (Layanan l : layananDb) {
@@ -712,8 +623,6 @@ public class ChatEngine {
             }
         }
         if (order.layanan == null) return order;
-
-        // 2. Kuantitas + validasi negatif
         String errSatuan = cekSatuanInvalid(segLow, order.layanan.isPerKg());
         if (errSatuan != null) {
             order.errorMsg = errSatuan;
@@ -736,8 +645,6 @@ public class ChatEngine {
                 order.jumlahItem = item;
             }
         }
-
-        // 3. Kecepatan
         if (PAT_EXPRESS.matcher(segLow).find()) {
             if (order.layanan.isBisaExpress()) {
                 order.kecepatan = "EXPRESS";
@@ -748,8 +655,6 @@ public class ChatEngine {
         } else if (PAT_STANDAR.matcher(segLow).find()) {
             order.kecepatan = "STANDAR";
         }
-
-        // 4. Addon (opsional)
         order.tanpaAddon = PAT_TANPA_ADDON.matcher(segLow).find();
         order.semuaAddon = PAT_SEMUA_ADDON.matcher(segLow).find();
 
@@ -904,7 +809,7 @@ public class ChatEngine {
     }
 
     private boolean adaFlag = false;
-    private void ada_set(ChatSession s) { adaFlag = true; } // dummy untuk lambda
+    private void ada_set(ChatSession s) { adaFlag = true; }
 
     private BotResponse selesaiItem(ChatSession session) {
         double sub  = hitungSubtotalSesi(session);
@@ -953,10 +858,8 @@ public class ChatEngine {
 
         if (cur.layanan.isPerKg() && cur.beratKg <= 0) {
             if (PAT_NEG.matcher(lower).find()) return txt("Berat tidak boleh negatif. Masukkan ulang.");
-
-            // ---> FILTER SATUAN KILOAN <---
             String errSatuan = cekSatuanInvalid(lower, true);
-            System.out.println(">>> DEBUG: Hasil Filter Kiloan = " + errSatuan); // Pelacak
+            System.out.println(">>> DEBUG: Hasil Filter Kiloan = " + errSatuan);
 
             if (errSatuan != null) return txt(errSatuan + "\n\nSilakan masukkan ulang berat yang benar:");
 
@@ -967,10 +870,8 @@ public class ChatEngine {
 
         } else if (!cur.layanan.isPerKg() && cur.jumlahItem <= 0) {
             if (PAT_NEG.matcher(lower).find()) return txt("Jumlah tidak boleh negatif. Masukkan ulang.");
-
-            // ---> FILTER SATUAN ITEM <---
             String errSatuan = cekSatuanInvalid(lower, false);
-            System.out.println(">>> DEBUG: Hasil Filter Item = " + errSatuan); // Pelacak
+            System.out.println(">>> DEBUG: Hasil Filter Item = " + errSatuan);
 
             if (errSatuan != null) return txt(errSatuan + "\n\nSilakan masukkan ulang jumlah yang benar:");
 
@@ -980,7 +881,6 @@ public class ChatEngine {
             cur.jumlahItem = item;
         }
 
-        // Lanjut ke item berikutnya atau simpan...
         session.clarificationIndex++;
         boolean adaLagi = session.clarificationIndex < session.pendingClarification.size();
         if (adaLagi) return startClarification(session);
@@ -1168,7 +1068,6 @@ public class ChatEngine {
 
     private void recalcDraft(ItemDraft d) {
         d.subtotalLayanan = d.layanan.isPerKg() ? d.layanan.getHarga() * d.beratKg : d.layanan.getHarga() * d.jumlahItem;
-        // Update harga express dinamis (jika dihitung per-kg)
         if ("EXPRESS".equals(d.kecepatan) && d.layanan.isPerKg()) {
             d.expressTotal = getExpressRate(d.layanan) * Math.max(d.beratKg, 1);
         }
@@ -1244,16 +1143,12 @@ public class ChatEngine {
             sb.append("- Ketik batal → batalkan seluruh pesanan");
             return txt(sb.toString());
         }
-
-        // Jika tidak ada yang di-downgrade, langsung lolos ke Nota
         session.state = ConvState.KONFIRMASI;
         return tampilNota(session);
     }
 
     private BotResponse handleTanyaDowngrade(String raw, String lower, ChatSession session) {
         if (isBatal(lower)) { resetSemua(session); return txt("Pesanan dibatalkan. Ada yang bisa saya bantu?"); }
-
-        // Jika user tidak setuju dan ingin menghapus item tersebut
         if (has(lower, "hapus", "buang", "tidak", "cancel")) {
             session.draftItems.removeIf(d -> session.downgradedLayanan.contains(d.layanan.getNamaLayanan()));
             session.downgradedLayanan.clear();
@@ -1265,10 +1160,8 @@ public class ChatEngine {
             session.state = ConvState.KONFIRMASI;
             return tampilNota(session);
         }
-
-        // Jika user pasrah dan setuju lanjut pakai standar
         if (has(lower, "ya", "iya", "lanjut", "oke", "ok", "tetap", "standar aja")) {
-            session.downgradedLayanan.clear(); // Bersihkan agar tidak ditanya lagi
+            session.downgradedLayanan.clear();
             session.state = ConvState.KONFIRMASI;
             return tampilNota(session);
         }
@@ -1384,7 +1277,7 @@ public class ChatEngine {
     }
 
     private BotResponse handleBatalkanPesanan(String raw, String lower){
-        String kode = cariKode(raw); // Menggunakan method cariKode yang sudah kamu punya
+        String kode = cariKode(raw);
 
         if (kode == null) {
             return txt("Masukkan kode pesanan yang ingin dibatalkan.\nContoh: batalkan WS-001");
@@ -1582,10 +1475,7 @@ public class ChatEngine {
         List<Layanan> layananDb = layananService.getLayananAktif();
 
         for (Layanan l : layananDb) {
-            // Cek Jalur Dinamis (Database)
             if (lower.contains(l.getNamaLayanan().toLowerCase())) return true;
-
-            // Cek Jalur Sinonim (Kamus LAYANAN_PAT)
             for (String[] pat : LAYANAN_PAT) {
                 if (pat[1].equalsIgnoreCase(l.getNamaLayanan()) &&
                         Pattern.compile(pat[0], Pattern.CASE_INSENSITIVE).matcher(input).find()) {
